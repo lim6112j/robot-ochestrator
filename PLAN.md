@@ -43,6 +43,29 @@
 - **미완성**: 협상의 *완결*(conclusion)까지는 보지 못했다. 제안에 응답하는
   주체가 필요한데, 프로브는 참여자를 흉내내는 역할이라 응답을 보내도
   진행이 안 된다. 응답 주체는 `fleet_adapter` 다.
+
+#### fleet adapter 세그폴트 — 미진단 (2026-11-13)
+
+교통 협상의 완결을 보려면 fleet adapter 가 살아 있어야 하는데,
+`RobotAPI()` 생성 부근에서 세그폴트(exit=139)한다. **원인을 찾지 못했다.**
+
+- 확실히 증명된 것: 내비그래프가 RMF 에 도달한다
+  (`Mirror handling new sync of 1 queries`). `from_config_files`,
+  `add_easy_fleet`, `add_robot_coordinates_transformation`,
+  `get_known_robot_configuration` 전부 성공. 즉 맵 문제는 아니다.
+- **진단 하네스가 거짓 원인을 만들었다.** 재현 스크립트가
+  `sys.path.insert(0, ...)` + `import RobotClientAPI` 조합을 썼는데,
+  **이 조합 자체가 세그폴트한다**(RMF 어댑터 없이도). 이 사실을 모르는 동안
+  paho 콜백 API 버전, `Adapter.start()` 후 `mqtt.Client()`, nudged 항등
+  변환, `get_known_robot_configuration` 의 콜론 네 가지를 원인으로 지목했고
+  각각 그럴듸해 보였으나, 제대로 재현하면 전부 통과한다. **전부 틀린 진단.**
+- 두 번째 함정: 프로세스가 죽은 뒤 파이썬이 죽은 스택을 언와인드하면서
+  정상적으로 실행된 줄에서 `KeyError` 를 보고한다. 키를 직전에 찍어보면
+  분명히 존재한다.
+- 다음에 할 일: 이미지에 gdb 가 없고 PyPI 에도 없다
+  (`apt-get install -y gdb`). 받은 뒤 어댑터를 gdb 로 돌려 C++ 스택을
+  확보한다. 또는 `faulthandler.dump_traceback_later()` 로 주기 덤프.
+- `deploy/rmf/README.md` 에 함정과 다음 단계를 기록해 두었다.
 - `rmf_traffic_editor` 소스 빌드는 **불필요**하다. 공식 데모
   (`rmf_demos/launch/common.launch.xml`)도 editor 없이
   `building_map_server` + `rmf_traffic_schedule` + `rmf_traffic_blockade`

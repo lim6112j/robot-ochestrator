@@ -103,8 +103,32 @@ Honest status of `deploy/rmf/fleet_adapter`:
   `KeyError: 'fleet_manager'` from a later line, because the process is
   already dead by the time Python unwinds.
 
-This is not yet diagnosed. What is established is that the failure is *after*
+This is **not diagnosed**. What is established is that the failure is *after*
 the nav graph is accepted, so it is not a map-format problem any more.
+
+### A trap that produced several wrong diagnoses
+
+If you reproduce this with a script, do **not** use
+`sys.path.insert(0, ...)` followed by `import RobotClientAPI`. That exact
+combination segfaults on its own — with no RMF adapter running at all. Import
+it as a package (`from vda5050_fleet_adapter.RobotClientAPI import RobotAPI`
+with `PYTHONPATH` pointing at the parent of the package) or load the file
+directly with `importlib.util`, and the import succeeds.
+
+While unaware of this, several plausible causes were identified and each one
+looked convincing in isolation: the paho callback API version, constructing
+`mqtt.Client` after `Adapter.start()`, the `nudged` identity transform, and
+`get_known_robot_configuration` on a name containing a colon. Every one of them
+passes when reproduced properly. None of them is the cause. Do not trust them.
+
+The misleading `KeyError: 'fleet_manager'` is a second trap: the process dies
+first, and Python unwinds a dead stack and reports an exception from a line
+that did run correctly. `config_yaml` really does contain `fleet_manager` —
+verified by printing the keys immediately before.
+
+To actually find it: install gdb (`apt-get install -y gdb`; it is not in the
+image and is not on PyPI) and run the adapter under it, or use
+`faulthandler.dump_traceback_later()` to dump the stack periodically.
 
 ## Verified
 
