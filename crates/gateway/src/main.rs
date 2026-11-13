@@ -11,10 +11,11 @@ use axum::Router;
 use clap::Parser;
 use serde_json::Value;
 use tokio::net::TcpListener;
-use tracing::info;
+use tracing::{info, warn};
 use vda5050_types::MAJOR_VERSION;
 
 use gateway::api;
+use gateway::auth::ApiToken;
 use gateway::ingest::{self, IngestConfig};
 use gateway::orders::OrderPublisher;
 use gateway::store::Store;
@@ -55,6 +56,13 @@ struct Args {
     #[arg(long, default_value = "deploy/maps/plant-b.l1.json")]
     map: PathBuf,
 
+    /// Shared secret required on every `/api/*` route and the WebSocket.
+    ///
+    /// Unset leaves the gateway open, which is only acceptable against a
+    /// loopback dev broker: dispatching a mission drives physical hardware.
+    #[arg(long, env = "API_TOKEN")]
+    api_token: Option<String>,
+
     #[arg(long, default_value = "info")]
     log: String,
 }
@@ -77,6 +85,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|| serde_json::json!({ "mapId": "unknown", "nodes": {}, "edges": [] }));
 
     let store = Store::new(args.heartbeat_timeout_s);
+
+    let token = ApiToken::new(args.api_token.clone());
+    if token.is_enabled() {
+        info!("api token required on /api/* and /ws");
+    } else {
+        warn!(
+            "api token not set — anyone who can reach port {} can dispatch missions.              set --api-token (or API_TOKEN) to require authentication",
+            args.http_addr.port()
+        );
+    }
 
     let ingest_config = IngestConfig {
         interface: args.interface.clone(),
@@ -101,14 +119,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             args.major_version,
         )),
         validator: Arc::new(vda5050_types::MessageValidator::new()?),
+        token: token.clone(),
     };
 
-    let app: Router = api::router(state);
+    let app: Router = api::router(state.clone());
 
     info!(
         listen = %args.http_addr,
         interface = %args.interface,
         major_version = args.major_version,
+        authenticated = token.is_enabled(),
         "gateway starting"
     );
 

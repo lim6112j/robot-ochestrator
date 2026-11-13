@@ -15,10 +15,13 @@ use std::collections::{BTreeMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::info;
-use vda5050_types::types::{Action, ActionParameter, BlockingType, Edge, Node, Order, Position};
+use vda5050_types::types::{
+    Action, ActionParameter, BlockingType, Edge, InstantAction, InstantActions, Node, Order,
+    Position,
+};
 use vda5050_types::{MessageValidator, Topic, TopicPath};
 
 use crate::store::Store;
@@ -305,7 +308,8 @@ fn parse_blocking(raw: Option<&str>) -> BlockingType {
     }
 }
 
-/// Publishes orders and validates them against the official schema first.
+/// Publishes messages on a robot's own topics, validating each one against
+/// the official schema before it leaves.
 #[derive(Debug)]
 pub struct OrderPublisher {
     client: Arc<rumqttc::AsyncClient>,
@@ -331,27 +335,33 @@ impl OrderPublisher {
         }
     }
 
-    /// Validate and publish an order.
+    /// Validate and publish any serialisable VDA 5050 message.
     ///
     /// # Errors
-    /// Returns the schema violation reasons when the assembled message is not
-    /// valid VDA 5050, or the broker error when the publish fails.
-    pub async fn publish(&self, order: &Order) -> Result<String, PublishError> {
-        let value = serde_json::to_value(order).map_err(PublishError::Serialize)?;
-        // Reject before the robot ever sees it: a malformed order would only
-        // surface as a `VALIDATION_FAILURE` in the robot's state.
+    /// Returns the schema violation reasons when the message is not valid
+    /// VDA 5050, or the broker error when the publish fails.
+    pub async fn publish<T: Serialize>(
+        &self,
+        topic: Topic,
+        manufacturer: &str,
+        serial_number: &str,
+        message: &T,
+    ) -> Result<String, PublishError> {
+        let value = serde_json::to_value(message).map_err(PublishError::Serialize)?;
+        // Reject before the robot ever sees it: a malformed message would only
+        // surface as an error entry in the robot's own state.
         let valid = self
             .validator
-            .validate_value(Topic::Order, value)
+            .validate_value(topic, value)
             .map_err(|rejected| PublishError::Invalid(rejected.reasons))?;
         let payload = serde_json::to_vec(&valid).map_err(PublishError::Serialize)?;
 
         let path = TopicPath::new(
             self.interface.clone(),
             self.major_version,
-            order.manufacturer.clone(),
-            order.serial_number.clone(),
-            Topic::Order,
+            manufacturer.to_owned(),
+            serial_number.to_owned(),
+            topic,
         );
         self.client
             .publish(path.to_string(), rumqttc::QoS::AtLeastOnce, false, payload)
@@ -384,7 +394,12 @@ pub async fn submit(
 ) -> Result<Order, Vec<String>> {
     let order = assembler.assemble(request)?;
     let topic = publisher
-        .publish(&order)
+        .publish(
+            Topic::Order,
+            &order.manufacturer,
+            &order.serial_number,
+            &order,
+        )
         .await
         .map_err(|error| vec![error.to_string()])?;
     let robot_id = format!("{}:{}", order.manufacturer, order.serial_number);
@@ -406,4 +421,169 @@ pub async fn submit(
         })
         .await;
     Ok(order)
+}
+
+/// One instant action as submitted by the dashboard.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstantActionSpec {
+    /// VDA 5050 instant action type, e.g. `cancelOrder`, `startPause`.
+    pub action_type: String,
+    /// Operator-facing label; generated when omitted.
+    #[serde(default)]
+    pub action_id: Option<String>,
+    /// Extra action parameters, passed through verbatim.
+    #[serde(default)]
+    pub parameters: BTreeMap<String, Value>,
+}
+
+/// A batch of instant actions for one robot.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstantActionRequest {
+    /// At least one action; VDA 5050 allows several per message.
+    pub actions: Vec<InstantActionSpec>,
+}
+
+/// Instant actions the control screen offers.
+///
+/// The set a robot actually honours depends on its factsheet; the gateway does
+/// not filter, because a wrong guess is reported by the robot itself as
+/// `UNSUPPORTED_ACTION` and surfaces in its state.
+pub const INSTANT_ACTIONS: &[&str] = &[
+    "startPause",
+    "stopPause",
+    "cancelOrder",
+    "requestRelease",
+    "stateRequest",
+    "startHibernation",
+    "stopHibernation",
+];
+
+/// Assemble, validate and publish instant actions for one robot.
+///
+/// # Errors
+/// Returns one reason per problem, so the operator can fix them all at once.
+pub async fn submit_instant(
+    publisher: &OrderPublisher,
+    store: &Arc<Store>,
+    robot_id: &str,
+    request: &InstantActionRequest,
+) -> Result<InstantActions, Vec<String>> {
+    let Some((manufacturer, serial_number)) = robot_id.split_once(':') else {
+        return Err(vec![format!(
+            "robot id '{robot_id}' must look like manufacturer:serialNumber"
+        )]);
+    };
+    if request.actions.is_empty() {
+        return Err(vec!["at least one action is required".to_owned()]);
+    }
+
+    let mut problems = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+    for (index, action) in request.actions.iter().enumerate() {
+        if action.action_type.trim().is_empty() {
+            problems.push(format!("action {index}: actionType is required"));
+        }
+        let label = action
+            .action_id
+            .clone()
+            .unwrap_or_else(|| format!("ia{}", index + 1));
+        if !seen.insert(label.clone()) {
+            problems.push(format!("duplicate actionId '{label}'"));
+        }
+    }
+    if !problems.is_empty() {
+        return Err(problems);
+    }
+
+    let actions = request
+        .actions
+        .iter()
+        .enumerate()
+        .map(|(index, action)| {
+            let mut parameters: Vec<ActionParameter> = action
+                .parameters
+                .iter()
+                .map(|(key, value)| ActionParameter {
+                    key: key.clone(),
+                    value: value.clone(),
+                })
+                .collect();
+            // `cancelOrder` is the one action with a defined parameter.
+            if action.action_type == "cancelOrder" && !parameters.iter().any(|p| p.key == "kill") {
+                parameters.push(ActionParameter {
+                    key: "kill".to_owned(),
+                    value: json!("false"),
+                });
+            }
+            InstantAction {
+                action_type: action.action_type.clone(),
+                action_id: action
+                    .action_id
+                    .clone()
+                    .unwrap_or_else(|| format!("ia{}", index + 1)),
+                action_descriptor: None,
+                // Unlike an order action (default HARD: the robot finishes it
+                // before driving on), an instant action runs *in parallel* with
+                // movement, so the v3 schema allows only `NONE` here.
+                blocking_type: Some(BlockingType::NONE),
+                action_parameters: parameters,
+            }
+        })
+        .collect();
+
+    let message = InstantActions {
+        header_id: next_header_id(),
+        timestamp: crate::ingest::now_string(),
+        version: vda5050_types::SPEC_VERSION.to_owned(),
+        manufacturer: manufacturer.to_owned(),
+        serial_number: serial_number.to_owned(),
+        actions,
+    };
+
+    let topic = publisher
+        .publish(
+            Topic::InstantActions,
+            &message.manufacturer,
+            &message.serial_number,
+            &message,
+        )
+        .await
+        .map_err(|error| vec![error.to_string()])?;
+
+    let applied: Vec<String> = message
+        .actions
+        .iter()
+        .map(|a| a.action_type.clone())
+        .collect();
+    info!(
+        %topic,
+        %robot_id,
+        header_id = message.header_id,
+        actions = %applied.join(","),
+        "instant actions published"
+    );
+    store
+        .record(crate::store::GatewayEvent::InstantActionPublished {
+            robot_id: robot_id.to_owned(),
+            actions: applied,
+            header_id: message.header_id,
+            topic,
+        })
+        .await;
+    Ok(message)
+}
+
+/// A `headerId` that is unique across gateway restarts.
+///
+/// Wall-clock based, like the order sequence, so a restarted gateway does not
+/// reuse an id a robot has already answered.
+fn next_header_id() -> u64 {
+    u64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(1, |d| d.as_millis()),
+    )
+    .unwrap_or(1)
 }

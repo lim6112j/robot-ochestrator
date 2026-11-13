@@ -101,6 +101,17 @@
   .toast div { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px; padding: 8px 12px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
   .toast .ok { border-left-color: var(--ok); }
   .toast .err { border-left-color: var(--err); }
+  .badge-link { cursor: pointer; font-size: 11px; }
+  .badge-link.ok { background: #1f4433; color: var(--ok); }
+  /* ── 즉시 제어 (정지/재개/취소) ── */
+  .ctl { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  .ctl button { flex: 1; background: #1b2540; color: #cfe0ff; border: 1px solid #2b3a63; border-radius: 6px; padding: 6px 4px; font-size: 11px; cursor: pointer; }
+  .ctl button:hover:not(:disabled) { background: #24325a; }
+  .ctl button:disabled { opacity: .35; cursor: default; }
+  .ctl button.danger { background: #3a1f24; color: #ffb3b3; border-color: #5a2a30; }
+  .ctl button.danger:hover:not(:disabled) { background: #4d2730; }
+  .ctl .on { background: #4a3a1f; color: var(--warn); border-color: #6b5225; }
+  .badge-link.warn { background: #4a3a1f; color: var(--warn); }
 </style>
 </head>
 <body>
@@ -108,6 +119,7 @@
   <h1>로봇 관제 · 디지털 트윈</h1>
   <span class="badge" id="map-badge">map: —</span>
   <div class="tools">
+    <button id="token-badge" class="badge-link" title="API 토큰">인증 ✗</button>
     <button id="btn-new-mission" title="로봇에 새 임무를 지시합니다">+ 임무 지시</button>
     <button id="btn-reset-view" title="맵 전체 보기">전체 보기</button>
     <span class="zoom-badge" id="zoom-badge">줌 1.0x</span>
@@ -131,6 +143,11 @@
   </section>
   <section>
     <div class="panel-title">선택 로봇</div>
+    <div class="ctl" id="controls" hidden>
+      <button id="btn-pause" title="startPause — 주행을 멈추고 대기">⏸ 정지</button>
+      <button id="btn-resume" title="stopPause — 대기 해제">▶ 재개</button>
+      <button id="btn-cancel" class="danger" title="cancelOrder — 진행 중 임무를 폐기">✖ 임무 취소</button>
+    </div>
     <div id="detail"><div id="empty">로봇을 선택하세요.</div></div>
     <div class="panel-title">이벤트</div>
     <div class="events" id="events"></div>
@@ -175,6 +192,32 @@
 
 <script>
 const state = { robots: new Map(), map: null, selected: null, events: [] };
+// API 토큰: --api-token 으로 게이트웨이를 띄운 경우 모든 /api/* 와 /ws 가 요구한다.
+// localStorage 에 보관해 새로고침해도 다시 묻지 않는다.
+const auth = {
+  get token() { return localStorage.getItem('rcs-api-token') || ''; },
+  set token(v) { v ? localStorage.setItem('rcs-api-token', v) : localStorage.removeItem('rcs-api-token'); },
+  headers() { const t = this.token; return t ? { 'Authorization': 'Bearer ' + t } : {}; },
+};
+
+function renderTokenBadge() {
+  const el = document.getElementById('token-badge');
+  if (!el) return;
+  const on = !!auth.token;
+  el.textContent = on ? '인증 ✓' : '인증 ✗';
+  el.title = on ? 'API 토큰 설정됨 · 클릭하여 변경'
+                : 'API 토큰 없음 · 클릭하여 입력 (게이트웨이가 --api-token 으로 뜬 경우 필수)';
+  el.className = 'badge ' + (on ? 'ok' : 'warn');
+}
+
+/** 인증이 필요한 요청에서 401 이 오면 토큰 입력창을 띄운다. */
+function askToken(reason) {
+  const cur = auth.token;
+  const v = prompt(reason + '\nAPI 토큰을 입력하세요 (비우면 해제):', cur);
+  if (v === null) return;
+  auth.token = v.trim();
+  renderTokenBadge();
+}
 // 뷰: 확대/축소·이동. zoom=1 이면 맵 전체가 캔버스에 맞춰진다.
 const view = { zoom: 1, panX: 0, panY: 0, drag: null, base: null };
 const canvas = document.getElementById('canvas');
@@ -188,23 +231,43 @@ function resize() {
 }
 addEventListener('resize', resize);
 
+/** GET + 토큰 헤더. 401 이면 토큰을 물어보고 한 번 재시도한다. */
+async function apiGet(path) {
+  let res = await fetch(path, { headers: auth.headers() });
+  if (res.status === 401) {
+    askToken('관제 API 가 인증을 요구합니다.');
+    res = await fetch(path, { headers: auth.headers() });
+  }
+  return res;
+}
+
 async function boot() {
-  const [robots, map] = await Promise.all([
-    fetch('/api/robots').then(r => r.json()),
-    fetch('/api/map').then(r => r.json()),
-  ]);
+  let robots, map;
+  try {
+    [robots, map] = await Promise.all([
+      apiGet('/api/robots').then(r => r.json()),
+      apiGet('/api/map').then(r => r.json()),
+    ]);
+  } catch (e) {
+    // 토큰 없이 열면 API 가 {"error": ...} 를 돌려주므로 필드가 없다.
+    console.warn('초기 데이터 로드 실패:', e);
+    return;
+  }
+  renderTokenBadge();
   state.map = map;
   document.getElementById('map-badge').textContent = 'map: ' + (map.mapId || 'unknown');
   document.getElementById('zoom-badge').textContent = '줌 1.0x';
-  for (const r of robots.robots) state.robots.set(r.robotId, r);
+  for (const r of robots.robots || []) state.robots.set(r.robotId, r);
   render();
   connectWs();
   setInterval(render, 250);
 }
 
+let retriedWithoutToken = 0;
 function connectWs() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  const q = auth.token ? '?token=' + encodeURIComponent(auth.token) : '';
+  const ws = new WebSocket(`${proto}://${location.host}/ws${q}`);
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
     if (msg.type === 'snapshot') {
@@ -226,7 +289,13 @@ function connectWs() {
     state.events = state.events.slice(0, 60);
     renderEvents();
   };
-  ws.onclose = () => setTimeout(connectWs, 1000);
+  ws.onclose = () => {
+    if (!auth.token && retriedWithoutToken < 1) {
+      retriedWithoutToken++;
+      askToken('WebSocket 이 끊겼습니다. 게이트웨이가 토큰을 요구하면 입력하세요:');
+    }
+    setTimeout(connectWs, 1000);
+  };
 }
 
 function fleetLabel(r) {
@@ -273,10 +342,55 @@ function renderList() {
   });
 }
 
+/** 즉시액션 전송. 성공/거부를 토스트로 알린다. */
+async function sendInstant(robotId, actionTypes) {
+  const res = await fetch(`/api/robots/${encodeURIComponent(robotId)}/instant-actions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth.headers() },
+    body: JSON.stringify({
+      actions: actionTypes.map((t, i) => ({ actionType: t, actionId: `ui-${t}-${i + 1}` })),
+    }),
+  });
+  if (res.status === 401) { askToken('즉시 제어가 거부되었습니다.'); return; }
+  const payload = await res.json();
+  if (res.ok) toast('ok', `${actionTypes.join(' + ')} 전송 → ${payload.robotId}`);
+  else toast('err', (payload.reasons || ['거부됨']).join(' · '));
+}
+
+/** 선택 로봇에 맞게 제어 버튼을 갱신한다. */
+function renderControls() {
+  const box = document.getElementById('controls');
+  const r = state.robots.get(state.selected);
+  if (!r) { box.hidden = true; return; }
+  box.hidden = false;
+  const offline = r.connection !== 'ONLINE';
+  document.getElementById('btn-pause').disabled = offline || !!r.paused;
+  document.getElementById('btn-resume').disabled = offline || !r.paused;
+  document.getElementById('btn-cancel').disabled = offline || !r.orderId;
+  // 일시정지 중이면 정지 버튼을 강조해 현재 상태를 보여준다.
+  document.getElementById('btn-pause').classList.toggle('on', !!r.paused);
+}
+
+document.getElementById('btn-pause').onclick = () =>
+  sendInstant(state.selected, ['startPause']);
+document.getElementById('btn-resume').onclick = () =>
+  sendInstant(state.selected, ['stopPause']);
+document.getElementById('btn-cancel').onclick = async () => {
+  // 임무 폐기는 되돌릴 수 없으므로 한 번 확인한다.
+  const r = state.robots.get(state.selected);
+  if (!r) return;
+  if (!confirm(`'${r.orderId}' 임무를 취소할까요?\n${r.robotId} 로봇이 즉시 정지합니다.`)) return;
+  await sendInstant(r.robotId, ['cancelOrder']);
+};
+
 function renderDetail() {
   const el = document.getElementById('detail');
   const r = state.robots.get(state.selected);
-  if (!r) { el.innerHTML = '<div id="empty">로봇을 선택하세요.</div>'; return; }
+  if (!r) {
+    el.innerHTML = '<div id="empty">로봇을 선택하세요.</div>';
+    document.getElementById('controls').hidden = true;
+    return;
+  }
   const caps = r.capabilities || {};
   el.innerHTML = `
     <dl class="kv">
@@ -295,6 +409,7 @@ function renderDetail() {
       <dt>지원 액션</dt><dd>${(caps.actions || []).join(', ') || '—'}</dd>
       <dt>존 지원</dt><dd>${caps.zones ? '예' : '아니오'}</dd>
     </dl>`;
+  renderControls();
 }
 
 function renderEvents() {
@@ -415,6 +530,9 @@ document.getElementById('ms-wps').addEventListener('click', (ev) => {
 
 document.getElementById('btn-clear-wps').onclick = () => { mission.waypoints = []; renderMission(); };
 document.getElementById('btn-new-mission').onclick = openMission;
+document.getElementById('token-badge').onclick = () =>
+  askToken('API 토큰을 입력하세요 (비우면 인증 없이 시도합니다):');
+renderTokenBadge();
 document.getElementById('btn-close-mission').onclick = closeMission;
 document.getElementById('btn-cancel-mission').onclick = closeMission;
 document.getElementById('ms-robot').onchange = (ev) => { mission.robotId = ev.target.value; renderMission(); };
@@ -448,9 +566,14 @@ document.getElementById('btn-send-mission').onclick = async () => {
   try {
     const res = await fetch('/api/orders', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...auth.headers() },
       body: JSON.stringify(body),
     });
+    if (res.status === 401) {
+      document.getElementById('ms-reject').textContent = '인증이 필요합니다 (401)';
+      askToken('임무 전송이 거부되었습니다.');
+      return;
+    }
     const payload = await res.json();
     if (res.ok) {
       toast('ok', `임무 전송: ${payload.orderId} → ${payload.robotId} (경유지 ${payload.waypoints}개)`);

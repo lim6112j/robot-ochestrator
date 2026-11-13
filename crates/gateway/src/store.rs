@@ -46,6 +46,12 @@ pub enum GatewayEvent {
         waypoints: usize,
         topic: String,
     },
+    InstantActionPublished {
+        robot_id: String,
+        actions: Vec<String>,
+        header_id: u64,
+        topic: String,
+    },
 }
 
 /// Counters exposed on `/api/metrics`.

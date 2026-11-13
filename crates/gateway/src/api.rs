@@ -13,7 +13,9 @@ use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
 use serde_json::json;
 
-use crate::orders::{OrderAssembler, OrderPublisher, OrderRequest};
+use crate::orders::{
+    InstantActionRequest, OrderAssembler, OrderPublisher, OrderRequest, INSTANT_ACTIONS,
+};
 use crate::store::Store;
 use vda5050_types::MessageValidator;
 
@@ -26,6 +28,8 @@ pub struct AppState {
     pub publisher: Arc<OrderPublisher>,
     /// Compiles the vendored schemas; shared with the ingest loop.
     pub validator: Arc<MessageValidator>,
+    /// Shared secret guarding the HTTP surface, when configured.
+    pub token: crate::auth::ApiToken,
 }
 
 /// Snapshot returned by `/api/robots`.
@@ -37,9 +41,11 @@ pub struct FleetSnapshot {
 }
 
 /// Build the router.
+///
+/// The dashboard itself is served without a token — it has to load before it
+/// can ask for one. Everything else, including `/ws`, sits behind the gate.
 pub fn router(state: AppState) -> Router {
-    Router::new()
-        .route("/", get(index))
+    let protected = Router::new()
         .route("/api/robots", get(robots))
         .route("/api/robots/{robot_id}", get(robot))
         .route("/api/events", get(events))
@@ -47,7 +53,20 @@ pub fn router(state: AppState) -> Router {
         .route("/api/dlq", get(dlq))
         .route("/api/map", get(map))
         .route("/api/orders", post(publish_order))
+        .route("/api/instant-actions", get(instant_action_catalog))
+        .route(
+            "/api/robots/{robot_id}/instant-actions",
+            post(publish_instant_actions),
+        )
         .route("/ws", get(ws_handler))
+        .route_layer(axum::middleware::from_fn_with_state(
+            state.token.clone(),
+            crate::auth::require_token,
+        ));
+
+    Router::new()
+        .route("/", get(index))
+        .merge(protected)
         .with_state(state)
 }
 
@@ -123,6 +142,37 @@ async fn dlq(State(state): State<AppState>) -> Json<Vec<serde_json::Value>> {
 /// The building map used by the dashboard.
 async fn map(State(state): State<AppState>) -> Json<Value> {
     Json((*state.map_json).clone())
+}
+
+/// The instant actions the control screen offers.
+async fn instant_action_catalog() -> Json<&'static [&'static str]> {
+    Json(INSTANT_ACTIONS)
+}
+
+/// `POST /api/robots/{robot_id}/instant-actions` — pause, resume or cancel.
+///
+/// This is the counterpart to a mission: without it an operator who sent a
+/// wrong order has no way to stop the robot short of killing the simulator.
+async fn publish_instant_actions(
+    State(state): State<AppState>,
+    Path(robot_id): Path<String>,
+    request: Result<axum::Json<InstantActionRequest>, axum::extract::rejection::JsonRejection>,
+) -> Result<Json<Value>, OrderRejection> {
+    let axum::Json(request) = request?;
+    let message =
+        crate::orders::submit_instant(&state.publisher, &state.store, &robot_id, &request)
+            .await
+            .map_err(|reasons| OrderRejection {
+                error: "invalid_instant_action",
+                reasons,
+            })?;
+
+    Ok(Json(json!({
+        "status": "published",
+        "robotId": robot_id,
+        "headerId": message.header_id,
+        "actions": message.actions.iter().map(|a| a.action_type.clone()).collect::<Vec<_>>(),
+    })))
 }
 
 /// WebSocket endpoint streaming gateway events.

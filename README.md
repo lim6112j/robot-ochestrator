@@ -57,6 +57,35 @@ cargo run -p gateway -- --http-addr 127.0.0.1:8090 &
 4. 경유지별 **액션**(pick/drop/charge/initPosition/patrol 등)과 **지속시간** 지정
 5. **임무 전송**
 
+### 즉시 제어 (정지 / 재개 / 취소)
+
+선택한 로봇의 패널에 세 버튼이 생깁니다.
+
+| 버튼 | 액션 | 동작 |
+|---|---|---|
+| ⏸ 정지 | `startPause` | 주행을 멈추고 제자리에 대기. 임무는 유지 |
+| ▶ 재개 | `stopPause` | 대기 해제, 남은 경로 계속 |
+| ✖ 임무 취소 | `cancelOrder` | 진행 중 임무를 폐기하고 정지 (확인 질문 있음) |
+
+버튼은 로봇 상태에 따라 활성/비활성이 바뀝니다(이미 정지 중이면 정지 버튼
+비활성, 임무가 없으면 취소 버튼 비활성). 즉시액션 처리 결과는 로봇의
+`instantActionStates` 로 돌아와 상세 패널에 표시됩니다.
+
+```bash
+# API 로 직접
+curl -s --noproxy '*' -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  http://127.0.0.1:8090/api/robots/acme:AMR-001/instant-actions \
+  -H 'Content-Type: application/json' \
+  -d '{"actions":[{"actionType":"cancelOrder"}]}'
+# 지원 액션 목록
+curl -s --noproxy '*' -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8090/api/instant-actions
+```
+
+> **VDA 5050 v3 주의**: 즉시액션의 `blockingType` 은 스키마가 `"NONE"` 만
+> 허용합니다(이동과 병렬 실행). 임무 액션의 기본값이 `HARD`("다 끝내고 나서
+> 이동")인 것과 정반대이므로, 순서 액션용 코드를 그대로 쓰면 거부됩니다.
+
 운영자가 건네줄 것은 *경로* 뿐입니다. `headerId`(정수 증가), `sequenceId`(노드 짝수·
 엣지 홀수), 노드 좌표·엣지 길이(서비스 중인 맵에서 조회)는 게이트웨이가 채우고,
 공식 스키마로 검증한 뒤에 발행합니다. 거부되면 사유를 한 번에 전부 돌려줍니다.
@@ -80,6 +109,26 @@ curl -s --noproxy '*' -X POST http://127.0.0.1:8090/api/orders \
 cargo run -p vda5050-sim -- --config deploy/sim-warehouse.yaml &
 cargo run -p gateway -- --map deploy/maps/plant-b.l1.json --http-addr 0.0.0.0:8090 &
 ```
+
+### 인증 (권장)
+
+게이트웨이는 토큰을 설정하면 모든 `/api/*` 와 `/ws` 에 인증을 요구합니다.
+토큰을 **설정하지 않으면** 열린 상태로 뜨므로, 루프백 개발 브로커가 아닌
+환경에서는 반드시 지정하세요.
+
+```bash
+cargo run -p gateway -- --api-token "$(openssl rand -hex 24)" --http-addr 0.0.0.0:8090
+# 또는 API_TOKEN 환경변수
+```
+
+- API 호출: `Authorization: Bearer <token>` 헤더
+- WebSocket: 브라우저는 WS 에 헤더를 보낼 수 없으므로 `?token=<token>` 쿼리 파라미터
+- 대시보드: 헤더의 **인증** 배지를 클릭해 토큰을 입력하면 `localStorage` 에
+  보관되어 새로고침 후에도 유지됩니다
+- 대시보드 페이지(`/`) 자체는 토큰 없이도 로드됩니다 — 토큰을 물어봐야 하므로
+
+임무 지시는 **물리 하드웨어에 대한 쓰기**이므로 "포트에 도달할 수 있다"는
+이유만으로 허용하면 안 됩니다.
 
 현재 기동 중이면 바로 열 수 있습니다:
 - 관제 화면: **http://localhost:8090**
