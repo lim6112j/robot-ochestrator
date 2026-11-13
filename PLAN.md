@@ -18,6 +18,27 @@
 | **Phase 2** RMF 연동 | 🔵 결정 완료 | Jazzy(Docker) · Python 어댑터(2안) · Full Control — 2026-11-13 확정, 착수 준비 |
 | **Phase 3~5** | ⏳ 대기 | 3D 트윈(Bevy) · 실제 제조사 온보딩 · 운영화 |
 
+#### 교통 협상 프로브 — 미완성 (2026-11-13)
+
+`deploy/rmf/traffic_probe.py`: RMF 교통 협상을 검증하려는 시도.
+**결과: 협상이 발생하지 않음. 원인을 특정했고 그 전까지는 전부 동작함.**
+
+- 동작함: `rmf_traffic_schedule` 기동, 참여자 2대 등록(participant_id 0,1),
+  일정 제출, 참여자 상태(`/rmf_traffic/participants`)와 진행
+  (`itinerary_reached`/`itinerary_delay`) 보고 — 전부 노드에 도달.
+- **막힌 곳: 스케줄러가 `/map` 을 구독하지 않는다.** `ros2 topic info /map` 이
+  discovery 25초 후에도 `Subscription count: 0`. 내비 그래프 없이는 협상할
+  대상이 없으므로 협상이 시작되지 않는다.
+- **빠진 것**: `.building.yaml` 을 스케줄 내비그래프 패치로 바꾸는 컴포넌트.
+  RMF 에서 그 역할은 `rmf_traffic_editor` 인데, 이 이미지는
+  `rmf_traffic_editor_assets` 만 있고 **Qt 편집기 바이너리가 없다**.
+  헤드리스 컨테이너에서 GUI 를 띄울 수 없어 패치를 공급할 수 없다.
+- **남은 작업**(선택): `rmf_traffic_editor` 소스 빌드, 또는 RMF API로
+  `SchedulePatch` 메시지를 직접 구성. 전자는 이미지가 더 무거워지고,
+  후자는 RMF 내부 스키마를 더 파야 한다.
+- 프로브 문서에 이 한계를 명시했다. "검증 실패"를 "미완성 + 원인 특정"으로
+  기록해 두지 않으면, 이후에 같은 땅을 다시 파게 된다.
+
 #### door adapter 추가 (2026-11-13)
 
 `deploy/rmf/door_adapter`: RMF `door_states` 발행 + `door_requests` 수락.

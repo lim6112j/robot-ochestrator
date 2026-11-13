@@ -28,6 +28,27 @@ docker run --rm -it --network host rcs-rmf:jazzy
 `--network host` matters: the fleet adapter will talk to the MQTT broker and
 to the VDA 5050 simulator on the host.
 
+## Traffic arbitration: not yet verified
+
+`traffic_probe.py` is an attempt to verify the other half of the Phase 2
+completion criterion — two robots from different manufacturers negotiating a
+shared aisle. It does not reach a negotiation, and the reason is pinned down:
+
+* `rmf_traffic_schedule` starts, and accepts participant registration,
+  itinerary submission, live participant state and progress reporting.
+* It does **not** subscribe to `/map`. `ros2 topic info /map` reports
+  `Subscription count: 0` even after 25s of discovery.
+* Without a nav graph there is nothing to arbitrate, so no
+  `/rmf_traffic/negotiation_*` traffic ever appears.
+
+The missing piece is whatever turns a `.building.yaml` into a schedule
+nav-graph patch. In RMF that is `rmf_traffic_editor`, but this image carries
+only `rmf_traffic_editor_assets` — the Qt editor binary is absent and cannot
+run headless. Closing this needs either a source build of
+`rmf_traffic_editor` or composing `SchedulePatch` messages directly.
+
+The probe's docstring records this so the same ground is not re-dug.
+
 ## Verified
 
 * 42 `ros-jazzy-rmf-*` packages installed.
