@@ -18,6 +18,28 @@
 | **Phase 2** RMF 연동 | 🔵 결정 완료 | Jazzy(Docker) · Python 어댑터(2안) · Full Control — 2026-11-13 확정, 착수 준비 |
 | **Phase 3~5** | ⏳ 대기 | 3D 트윈(Bevy) · 실제 제조사 온보딩 · 운영화 |
 
+#### door adapter 추가 (2026-11-13)
+
+`deploy/rmf/door_adapter`: RMF `door_states` 발행 + `door_requests` 수락.
+`lif2rmf` 가 문을 이미 내비 그래프에 넣고 차선 8개에 `door_name` 을 붙였지만,
+상태를 발행하는 어댑터가 없어 문은 영원히 닫혀 있어 문을 지나는 임무는
+전부 정체했을 것이다.
+
+- `MODE_OPEN` 은 "물리적으로 열림" 이 아니라 **"사용 가능"** 이고, 어댑터가
+  결정한다. 영구 `MODE_CLOSED` 는 교착, 무조건 `MODE_OPEN` 은 예약을 무효화.
+  요청 시 열고 hold-off(6초) 후 다시 닫는다 — RMF 예제와 같은 동작.
+- 검증(실제 컨테이너): 초기 `MODE_CLOSED` → 요청 시 `MODE_OPEN` + 로그
+  "opened for acme:AMR-001" → 7초 후 자동 `MODE_CLOSED` →
+  존재하지 않는 문 요청은 WARN 과 함께 거부(상태 불변).
+- **미검증 — 로봇이 실제로 대기하는 것.** `vda5050-sim` 에 문 개념이 없다.
+  `DOOR-*` 를 일반 노드로 취급하고 그대로 지나간다. 즉 RMF 쪽 예약 프로토콜은
+  맞지만 하류에서 그것을 지키는 존재가 없어, 어떤 로봇도 hold 되지 않는다.
+  두 제조사 로봇에게 같은 문 경유 임무를 동시에 내려 확인: 둘 다 문을
+  통과했고 동시 점유는 없었다(우연이 아니라 로직이 없기 때문).
+- 남은 작업: 시뮬레이터가 차선의 `door_name` 을 존중해야 한다 — 닫힌 문에
+  들어가지 않거나, 요청 후 대기하거나. 그 전까지 door adapter 는 검증됐지만
+  하중을 받지 않는다(load-bearing 아님).
+
 #### 어댑터 경계 trait 추가 (2026-11-13)
 
 `crates/robot-adapter`: `RobotAdapter` trait. ADR-004 가 Python 어댑터를 택한

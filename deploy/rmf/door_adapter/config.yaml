@@ -1,0 +1,14 @@
+# Doors published by this adapter.
+#
+# The names must match the DOOR-* nodes in the VDA 5050 map, because that is
+# what lif2rmf turned into RMF doors and what the lanes reference.
+doors:
+  - name: "DOOR-IN"
+    # How long the door stays open after a request, in seconds. Long enough
+    # for the requesting robot to clear the doorway at its own speed.
+    hold_off_s: 6.0
+  - name: "DOOR-OUT"
+    hold_off_s: 6.0
+
+# Seconds between door state publications.
+publish_period_s: 1.0

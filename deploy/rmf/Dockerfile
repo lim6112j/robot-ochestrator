@@ -35,6 +35,15 @@ RUN pip3 install --break-system-packages --no-cache-dir paho-mqtt
 # workspace; seed it so a later `rosdep install` does not need the network.
 RUN rosdep init 2>/dev/null; rosdep update --rosdistro jazzy 2>&1 | tail -1
 
+# The VDA 5050 door adapter: publishes door_states and grants door_requests
+# for the doors lif2rmf models out of the map. Installed the same way as the
+# fleet adapter (see the note below about why pip and not colcon).
+COPY door_adapter /rmf_ws/src/vda5050_door_adapter
+RUN pip3 install --break-system-packages --no-cache-dir /rmf_ws/src/vda5050_door_adapter \
+    && printf '#!/bin/bash\nsource /opt/ros/jazzy/setup.bash\nexec python3 -m vda5050_door_adapter.door_adapter "$@"\n' \
+        > /usr/local/bin/vda5050-door-adapter \
+    && chmod +x /usr/local/bin/vda5050-door-adapter
+
 # The VDA 5050 fleet adapter (ADR-004).
 #
 # The upstream template is an ament_python package, but making colcon build it

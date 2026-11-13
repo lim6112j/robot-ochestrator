@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>vda5050_door_adapter</name>
+  <version>1.0.0</version>
+  <description>VDA 5050 door adapter for Open-RMF.</description>
+  <maintainer email="dev@example.com">Robot Control System</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclpy</depend>
+  <depend>rmf_door_msgs</depend>
+  <exec_depend>pyyaml</exec_depend>
+</package>

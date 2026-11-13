@@ -110,6 +110,27 @@ cargo run -p vda5050-sim -- --config deploy/sim-warehouse.yaml &
 cargo run -p gateway -- --map deploy/maps/plant-b.l1.json --http-addr 0.0.0.0:8090 &
 ```
 
+### 공유 자원 (문)
+
+`deploy/rmf/door_adapter` 가 RMF `door_states` 를 발행하고 `door_requests` 를
+수락합니다. `DOOR-IN`/`DOOR-OUT` 은 `lif2rmf` 가 이미 RMF 문으로 모델링하고
+내비 그래프의 차선 8개에 `door_name` 을 붙였지만, 상태를 발행하는 어댑터가
+없으면 문은 영원히 닫혀 있어 문을 지나는 임무가 전부 정체합니다.
+
+`MODE_OPEN` 은 "물리적으로 열림" 이 아니라 **"사용 가능"** 입니다. 영구
+`MODE_CLOSED` 는 교착을, 무조건 `MODE_OPEN` 은 예약 자체를 무효화합니다.
+요청 시 열고 hold-off(기본 6초) 후 다시 닡습니다.
+
+```bash
+docker run --rm -it --network host \
+  -v "$PWD/deploy/rmf/door_adapter:/rmf/door_adapter" \
+  rcs-rmf:jazzy
+# 컨테이너 안에서:
+ros2 run vda5050_door_adapter door_adapter -c /rmf/door_adapter/config.yaml
+```
+
+관제에서 문 점유를 보려면 `GET /api/shared-resources`.
+
 ### 창고 맵 → RMF 내비 그래프 변환
 
 `tools/lif2rmf` 가 VDA 5050 맵(노드/엣지 JSON)을 RMF building map(YAML)으로 바꿉니다.
