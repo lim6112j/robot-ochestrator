@@ -6,6 +6,7 @@ members = [
     "crates/gateway",
     "tools/conformance",
     "tools/broker",
+    "tools/lif2rmf",
 ]
 
 [workspace.package]

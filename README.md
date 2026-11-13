@@ -110,6 +110,29 @@ cargo run -p vda5050-sim -- --config deploy/sim-warehouse.yaml &
 cargo run -p gateway -- --map deploy/maps/plant-b.l1.json --http-addr 0.0.0.0:8090 &
 ```
 
+### 창고 맵 → RMF 내비 그래프 변환
+
+`tools/lif2rmf` 가 VDA 5050 맵(노드/엣지 JSON)을 RMF building map(YAML)으로 바꿉니다.
+두 형식을 손으로 동시에 관리하면 반드시 drift 하므로 코드로 변환합니다.
+
+```bash
+cargo run -p lif2rmf -- --map deploy/maps/plant-b.l1.json --out deploy/maps/plant-b.building.yaml
+# plant-b/l1 → 정점 39(노드 35 + 문 2×2) · 차선 53 · 문 2
+```
+
+RMF 가 실제로 파싱한 결과: **내비 그래프 정점 35 · 차선 106**(53쌍 × 왕방향),
+그리고 **문을 지나는 차선 8개**(DOOR-IN 4 · DOOR-OUT 4)에 `door_name` 이 붙어
+공유 자원 예약이 임무에 반영됩니다.
+
+주의할 점 두 가지:
+
+1. **파라미터 키는 `bidirectional`** 이지 `is_bidirectional` 가 아닙니다. RMF 는
+   전자를 읽고 후자는 무시해서 차선이 **일방통행**이 됩니다 — 창고 끝에 로봇이
+   갇힙니다. 회귀 테스트로 고정했습니다.
+2. **문 세그먼트는 통로와 수직**이어야 합니다. RMF 의 `segments_intersect` 는
+   공선(collinear)을 교차로 보지 않으므로, 통로를 따라 놓은 문은 조용히
+   무시되어 예약이 요청되지 않습니다.
+
 ### 인증 (권장)
 
 게이트웨이는 토큰을 설정하면 모든 `/api/*` 와 `/ws` 에 인증을 요구합니다.
