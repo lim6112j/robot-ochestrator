@@ -31,14 +31,27 @@
 - 검증(실제 컨테이너): 초기 `MODE_CLOSED` → 요청 시 `MODE_OPEN` + 로그
   "opened for acme:AMR-001" → 7초 후 자동 `MODE_CLOSED` →
   존재하지 않는 문 요청은 WARN 과 함께 거부(상태 불변).
-- **미검증 — 로봇이 실제로 대기하는 것.** `vda5050-sim` 에 문 개념이 없다.
-  `DOOR-*` 를 일반 노드로 취급하고 그대로 지나간다. 즉 RMF 쪽 예약 프로토콜은
-  맞지만 하류에서 그것을 지키는 존재가 없어, 어떤 로봇도 hold 되지 않는다.
-  두 제조사 로봇에게 같은 문 경유 임무를 동시에 내려 확인: 둘 다 문을
-  통과했고 동시 점유는 없었다(우연이 아니라 로직이 없기 때문).
-- 남은 작업: 시뮬레이터가 차선의 `door_name` 을 존중해야 한다 — 닫힌 문에
-  들어가지 않거나, 요청 후 대기하거나. 그 전까지 door adapter 는 검증됐지만
-  하중을 받지 않는다(load-bearing 아님).
+- **시뮬레이터에 문 로직 구현** (`src/door.rs` + `robot.rs`): `DoorRegistry` 가
+  플릿 전체가 공유하는 문 점유를 관리하고, `Phase::WaitingForDoor` 로 대기한다.
+  임무의 첫 이동 leg 도 문 체크를 거친다(`accept_order` 가 직접 leg 를 만들 때
+  체크를 빠뜨리면 문 안으로 곧장 들어간다).
+- **E2E 검증 완료**: 두 제조사 로봇(`acme:AMR-002`, `sweepco:SCR-001`)에게 같은
+  문 경유 임무를 동시에 내리자 두 번째가 대기했다.
+  ```
+  waiting for door ... holder=acme:AMR-002  (robot=sweepco:SCR-001)
+  door granted, resuming                    (robot=sweepco:SCR-001)
+  ```
+  관제 `/api/shared-resources` 도 핸드오버를 보여줬다:
+  `DOOR-IN<-AMR-002` → `DOOR-IN<-AMR-002,SCR-001` → `DOOR-IN<-SCR-001`.
+- **VDA 5050 에 대기 표현 필드가 없다.** 위치만 보면 문 앞에 멈춘 로봇과
+  연결이 끊긴 로봇이 구분되지 않는다. `errorType` 이 확장 문자열이므로
+  `WAITING_FOR_DOOR` 를 `state.errors` 에 넣어 전달하고,
+  `RobotAdapter::holds()` 가 이를 읽는다.
+- **함정**: `errorReferences` 는 `{referenceKey, referenceValue}` 객체 배열이라
+  문자열을 넣으면 스키마 검증에 걸려 **state 메시지 전체가 버려진다**.
+  증상은 게이트웨이 `messages_rejected` 증가. 테스트로 고정.
+- hold-off 기본 6초는 대기 창이 0.25초뿐이라 폴링으로 놓쳤다.
+  `deploy/sim-warehouse.yaml` 에 25초로 설정해 핸드오버가 보이게 했다.
 
 #### 어댑터 경계 trait 추가 (2026-11-13)
 

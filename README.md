@@ -131,6 +131,22 @@ ros2 run vda5050_door_adapter door_adapter -c /rmf/door_adapter/config.yaml
 
 관제에서 문 점유를 보려면 `GET /api/shared-resources`.
 
+### 문 상호배타 (시뮬레이터)
+
+시뮬레이터의 `DoorRegistry`가 플릿 전체가 공유하는 문 점유를 관리합니다.
+두 제조사 로봇에게 같은 문 경유 임무를 동시에 내리면, 두 번째 로봇은 문
+앞에서 대기합니다:
+
+```
+waiting for door ... holder=acme:AMR-002   (robot=sweepco:SCR-001)
+door granted, resuming                     (robot=sweepco:SCR-001)
+```
+
+VDA 5050 v3에 "공유 자원 대기" 필드가 없어, 대기는 `state.errors` 의
+`WAITING_FOR_DOOR` 로 전달되고 `RobotAdapter::holds()` 가 읽습니다.
+`errorReferences` 는 `{referenceKey, referenceValue}` 객체 배열이라 문자열을
+넣으면 스키마 검증에 걸려 메시지 전체가 버려집니다.
+
 ### 창고 맵 → RMF 내비 그래프 변환
 
 `tools/lif2rmf` 가 VDA 5050 맵(노드/엣지 JSON)을 RMF building map(YAML)으로 바꿉니다.

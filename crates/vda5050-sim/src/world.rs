@@ -51,6 +51,12 @@ impl MapGraph {
         &self.map_id
     }
 
+    /// Every node id, so a caller can scan for a naming convention.
+    #[must_use]
+    pub fn node_ids(&self) -> Vec<String> {
+        self.nodes.keys().cloned().collect()
+    }
+
     /// Load a map from JSON.
     pub fn load(path: &std::path::Path) -> Result<Self, WorldError> {
         let raw = std::fs::read_to_string(path).map_err(|source| WorldError::Io {

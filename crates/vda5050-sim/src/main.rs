@@ -15,6 +15,7 @@ use vda5050_types::types::{Connection, ConnectionState, InstantActions, Order};
 use vda5050_types::{MessageValidator, Topic, TopicPath};
 
 mod config;
+mod door;
 mod mqtt;
 mod robot;
 mod world;
@@ -23,6 +24,27 @@ use crate::config::{Profile, RobotSpec, SimConfig};
 use crate::mqtt::{build_options, connection_will, incoming_publish, publish_json, RobotLink};
 use crate::robot::RobotVm;
 use crate::world::MapGraph;
+
+/// Collect the map's door nodes into a shared registry.
+///
+/// Naming is the signal — `DOOR-*` nodes are shared resources — because the map
+/// format has no field for it. Returns `None` when the map has no doors, so a
+/// building without them costs nothing and behaves exactly as before.
+fn build_doors(
+    map: &MapGraph,
+    prefix: &str,
+    hold_off_s: f64,
+) -> Option<Arc<crate::door::SharedDoors>> {
+    let mut registry = crate::door::DoorRegistry::default();
+    let mut found = 0;
+    for node_id in map.node_ids() {
+        if node_id.starts_with(prefix) {
+            registry.add(node_id.clone(), hold_off_s);
+            found += 1;
+        }
+    }
+    (found > 0).then(|| Arc::new(crate::door::SharedDoors::new(registry)))
+}
 
 /// Command line arguments.
 #[derive(Debug, Parser)]
@@ -92,6 +114,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    // Doors are shared fleet-wide, so the registry is built once and handed to
+    // every robot. A door two robots want is one physical doorway, which means
+    // the decision cannot live inside a single robot.
+    let doors = build_doors(
+        &map,
+        &config.world.door_prefix,
+        config.world.door_hold_off_s,
+    );
+    if let Some(doors) = &doors {
+        let count = doors.0.read().expect("door registry lock").len();
+        info!(doors = count, "shared doors registered");
+    }
+
     info!(
         robots = specs.len(),
         map = %map.map_id(),
@@ -113,6 +148,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tick_hz,
             seed + index as u64,
             start_node,
+            doors.clone(),
         ));
     }
 
@@ -166,6 +202,7 @@ async fn run_robot(
     tick_hz: f64,
     seed: u64,
     start_node: String,
+    doors: Option<Arc<crate::door::SharedDoors>>,
 ) {
     let (interface, major) = interface_for(spec.profile);
     // MQTT client ids must be globally unique: two fleets may use the same
@@ -176,6 +213,9 @@ async fn run_robot(
     );
 
     let mut vm = RobotVm::new(spec.clone(), (*map).clone(), &start_node, seed);
+    if let Some(doors) = doors.clone() {
+        vm = vm.with_doors(doors);
+    }
 
     let connection_path = TopicPath::new(
         interface,

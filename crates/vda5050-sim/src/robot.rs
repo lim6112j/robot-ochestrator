@@ -4,7 +4,7 @@ use rand::Rng;
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::{json, Value};
-use tracing::warn;
+use tracing::{info, warn};
 use vda5050_types::types::{
     Action, ActionParameter, ActionState, ActionStatus, Connection, ConnectionState, EdgeState,
     ErrorEntry, ErrorLevel, InstantActions, Node, NodeState, OperatingMode, Order, PowerSupply,
@@ -14,6 +14,13 @@ use vda5050_types::SPEC_VERSION;
 
 use crate::config::{Profile, RobotSpec};
 use crate::world::MapGraph;
+
+/// `state.errors[].errorType` for a robot held at a shared resource.
+///
+/// VDA 5050 v3 has no field for "waiting for a door", and `errorType` is an
+/// extensible string, so the wait is reported here. Without it a stopped robot
+/// is indistinguishable from a disconnected one.
+pub const WAITING_FOR_DOOR: &str = "WAITING_FOR_DOOR";
 
 /// What the robot is currently doing.
 #[derive(Debug, Clone)]
@@ -38,6 +45,20 @@ enum Phase {
         node_index: usize,
         action_index: usize,
         remaining_s: f64,
+    },
+    /// Waiting for a door another robot is holding.
+    ///
+    /// Distinct from `Idle` and from a paused robot: the robot has an order and
+    /// is trying to move, it is being held by a shared resource.
+    WaitingForDoor {
+        /// Node the robot is trying to reach — the one the door guards.
+        ///
+        /// Not where the robot is standing: releasing the wait means travelling
+        /// *to* this node, which is what `start_leg` does.
+        node_index: usize,
+        /// Door it is waiting to pass. Equal to `nodes[node_index].node_id`,
+        /// carried separately so the wait does not have to re-read the order.
+        door_id: String,
     },
 }
 
@@ -67,6 +88,9 @@ pub struct RobotVm {
     last_node_sequence_id: u32,
     /// Node the robot is currently at (used to compute the first leg of an order).
     current_node_id: String,
+    /// Shared doors this robot may contend for. `None` means the map has no
+    /// doors, in which case the robot behaves exactly as before.
+    doors: Option<std::sync::Arc<crate::door::SharedDoors>>,
 }
 
 impl RobotVm {
@@ -97,7 +121,33 @@ impl RobotVm {
             last_node_id: start_node.to_owned(),
             last_node_sequence_id: 0,
             current_node_id: start_node.to_owned(),
+            doors: None,
         }
+    }
+
+    /// Attach the fleet's door registry.
+    ///
+    /// Without it the robot drives through doors, which is what made the door
+    /// adapter correct but not load-bearing.
+    pub fn with_doors(mut self, doors: std::sync::Arc<crate::door::SharedDoors>) -> Self {
+        self.doors = Some(doors);
+        self
+    }
+
+    /// Identity as `manufacturer:serialNumber`, the form the door registry and
+    /// the gateway both use.
+    fn robot_id(&self) -> String {
+        format!("{}:{}", self.spec.manufacturer, self.spec.serial_number)
+    }
+
+    /// Whether entering `to_id` is blocked by a door another robot holds.
+    ///
+    /// A node that is not a door is never a reason to wait, and a robot already
+    /// holding the door is always let through.
+    fn doors_blocked(&self, to_id: &str) -> bool {
+        self.doors.as_ref().is_some_and(|doors| {
+            doors.is_door(to_id) && !doors.request(to_id, &self.robot_id(), self.elapsed_s)
+        })
     }
 
     /// `headerId` is an integer counter per the v3.0.0 schema.
@@ -222,8 +272,66 @@ impl RobotVm {
                     }
                 }
             }
+            Phase::WaitingForDoor {
+                node_index,
+                door_id,
+            } => self.wait_at_door(order, node_index, &door_id),
         };
         self.phase = next_phase;
+    }
+
+    /// Re-check a door the robot is being held at.
+    ///
+    /// Not paused, not idle, not driving: the robot has an order and is being
+    /// kept out of a doorway another robot is using. The wait is reported as a
+    /// `WAITING_FOR_DOOR` error, because VDA 5050 has no field for "held by a
+    /// shared resource" and without it a robot stopped at a door is
+    /// indistinguishable from one that lost its connection.
+    fn wait_at_door(&mut self, order: &Order, node_index: usize, door_id: &str) -> Phase {
+        self.driving = false;
+        let robot_id = self.robot_id();
+        let already_held = self
+            .doors
+            .as_ref()
+            .is_some_and(|d| d.holder(door_id).as_deref() == Some(robot_id.as_str()));
+        let granted = self
+            .doors
+            .as_ref()
+            .is_some_and(|doors| doors.request(door_id, &robot_id, self.elapsed_s));
+
+        if granted || self.doors.is_none() {
+            if self.doors.is_some() && !already_held {
+                info!(robot = %robot_id, door = %door_id, "door granted, resuming");
+                self.errors.retain(|e| e.error_type != WAITING_FOR_DOOR);
+            }
+            // Doors disappeared underneath us; carry on rather than stalling.
+            return self.start_leg(order, node_index);
+        }
+
+        let holder = self
+            .doors
+            .as_ref()
+            .and_then(|d| d.holder(door_id))
+            .unwrap_or_default();
+        info!(robot = %robot_id, door = %door_id, holder = %holder, "waiting for door");
+        self.errors.retain(|e| e.error_type != WAITING_FOR_DOOR);
+        self.errors.push(ErrorEntry {
+            error_type: WAITING_FOR_DOOR.to_owned(),
+            // `errorReferences` is an array of {referenceKey, referenceValue}
+            // objects, not bare strings — a string here fails schema
+            // validation, which would drop the whole `state` message.
+            error_references: vec![json!({
+                "referenceKey": "nodeId",
+                "referenceValue": door_id,
+            })],
+            error_description: Some(format!("door held by {holder}")),
+            error_hint: Some("waiting for shared resource".to_owned()),
+            error_level: ErrorLevel::WARNING,
+        });
+        Phase::WaitingForDoor {
+            node_index,
+            door_id: door_id.to_owned(),
+        }
     }
 
     fn begin_action(&mut self, _node_index: usize, _action_index: usize, action: &Action) {
@@ -252,6 +360,36 @@ impl RobotVm {
         }
     }
 
+    /// Begin the leg that carries the robot onto `node_index`.
+    ///
+    /// Used when a wait is released: the robot is standing where it was held,
+    /// and the node it is waiting for is `node_index` itself, so it has to
+    /// travel there rather than depart from it.
+    fn start_leg(&mut self, order: &Order, node_index: usize) -> Phase {
+        let Some(target) = order.nodes.get(node_index) else {
+            return self.complete_order(order);
+        };
+        let from = self.current_node_id.clone();
+        let to_id = target.node_id.clone();
+        let total = self.map.travel_time(&from, &to_id);
+        let mut route = self.map.polyline(&from, &to_id);
+        if route.len() < 2 {
+            route = vec![
+                (self.position.x, self.position.y),
+                (self.position.x, self.position.y),
+            ];
+        } else {
+            route[0] = (self.position.x, self.position.y);
+        }
+        self.driving = total > 0.0;
+        Phase::Moving {
+            node_index,
+            remaining_s: total,
+            total_s: total,
+            route,
+        }
+    }
+
     fn depart_node(&mut self, order: &Order, node_index: usize) -> Phase {
         let Some(next_index) = node_index.checked_add(1) else {
             return self.complete_order(order);
@@ -261,6 +399,29 @@ impl RobotVm {
         }
         let from_id = order.nodes[node_index].node_id.clone();
         let to_id = order.nodes[next_index].node_id.clone();
+
+        // A door on the *node the robot is standing on* must be released before
+        // the robot leaves, and a door it is about to enter must be granted.
+        // Checking here rather than on arrival is what makes a second robot
+        // wait at the threshold instead of driving in behind the first.
+        if let Some(doors) = self.doors.clone() {
+            let robot_id = self.robot_id();
+            if doors.is_door(&from_id)
+                && doors.holder(&from_id).as_deref() == Some(robot_id.as_str())
+            {
+                doors.release(&from_id, &robot_id);
+            }
+            if doors.is_door(&to_id) {
+                let granted = doors.request(&to_id, &robot_id, self.elapsed_s);
+                if !granted {
+                    return Phase::WaitingForDoor {
+                        node_index,
+                        door_id: to_id,
+                    };
+                }
+            }
+        }
+
         let total = self.map.travel_time(&from_id, &to_id);
         // 직통 엣지가 없어도 최단 경로(통로 경유)로 이동한다.
         let mut route = self.map.polyline(&from_id, &to_id);
@@ -352,21 +513,32 @@ impl RobotVm {
         self.order = Some(order);
         self.phase = match first_node {
             Some((node_id, _)) if !already_there => {
-                let total = self.map.travel_time(&self.current_node_id, &node_id);
-                let mut route = self.map.polyline(&self.current_node_id, &node_id);
-                if route.len() < 2 {
-                    route = vec![
-                        (self.position.x, self.position.y),
-                        (self.position.x, self.position.y),
-                    ];
+                // The first leg goes through the same door arbitration as every
+                // later one. Skipping it here would let a robot drive straight
+                // into a door another robot is holding, which is exactly the
+                // case mutual exclusion exists for.
+                if self.doors_blocked(&node_id) {
+                    Phase::WaitingForDoor {
+                        node_index: 0,
+                        door_id: node_id,
+                    }
                 } else {
-                    route[0] = (self.position.x, self.position.y);
-                }
-                Phase::Moving {
-                    node_index: 0,
-                    remaining_s: total,
-                    total_s: total,
-                    route,
+                    let total = self.map.travel_time(&self.current_node_id, &node_id);
+                    let mut route = self.map.polyline(&self.current_node_id, &node_id);
+                    if route.len() < 2 {
+                        route = vec![
+                            (self.position.x, self.position.y),
+                            (self.position.x, self.position.y),
+                        ];
+                    } else {
+                        route[0] = (self.position.x, self.position.y);
+                    }
+                    Phase::Moving {
+                        node_index: 0,
+                        remaining_s: total,
+                        total_s: total,
+                        route,
+                    }
                 }
             }
             _ => Phase::AtNode {
@@ -503,7 +675,10 @@ impl RobotVm {
         let current_index = match self.phase {
             Phase::AtNode { node_index, .. }
             | Phase::Moving { node_index, .. }
-            | Phase::Acting { node_index, .. } => node_index,
+            | Phase::Acting { node_index, .. }
+            // Waiting at a door means the robot is still on `node_index`: it
+            // has not reached the node it is waiting for.
+            | Phase::WaitingForDoor { node_index, .. } => node_index,
             Phase::Idle => usize::MAX,
         };
         let nodes = order
@@ -551,6 +726,11 @@ impl RobotVm {
             } => (node_index, action_index),
             Phase::Moving { node_index, .. } => {
                 // Still travelling: nothing at the target node has started yet.
+                (node_index, 0)
+            }
+            Phase::WaitingForDoor { node_index, .. } => {
+                // Held at a doorway: the robot has not reached the node it is
+                // waiting for, so none of its actions have started either.
                 (node_index, 0)
             }
             Phase::Idle => return Vec::new(),

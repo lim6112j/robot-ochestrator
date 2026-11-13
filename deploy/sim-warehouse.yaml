@@ -11,6 +11,7 @@ broker:
   majorVersion: 3
 
 world:
+  doorHoldOffS: 25.0
   map: deploy/maps/plant-b.l1.json
   tickHz: 20
   # 플릿 순서대로 시작 노드 (acme×2, sweepco, watchco, otherco)

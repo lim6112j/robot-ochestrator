@@ -191,7 +191,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const state = { robots: new Map(), map: null, selected: null, events: [] };
+const state = { robots: new Map(), map: null, selected: null, events: [], doors: [] };
 // API 토큰: --api-token 으로 게이트웨이를 띄운 경우 모든 /api/* 와 /ws 가 요구한다.
 // localStorage 에 보관해 새로고침해도 다시 묻지 않는다.
 const auth = {
@@ -256,6 +256,11 @@ async function boot() {
   renderTokenBadge();
   state.map = map;
   document.getElementById('map-badge').textContent = 'map: ' + (map.mapId || 'unknown');
+  // 문은 공유 자원: 점유 중이면 캔버스에 표시한다.
+  fetch('/api/shared-resources', { headers: auth.headers() })
+    .then(r => r.json())
+    .then(rs => { state.doors = rs; })
+    .catch(() => {});
   document.getElementById('zoom-badge').textContent = '줌 1.0x';
   for (const r of robots.robots || []) state.robots.set(r.robotId, r);
   render();
@@ -775,6 +780,26 @@ function render() {
     });
     ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
   }
+  // 문: 점유 중이면 주황, 아니면 회색 테두리. 점유 로봇이 있으면 이름을 붙인다.
+  for (const door of state.doors) {
+    const n = state.map.nodes[door.id];
+    if (!n) continue;
+    const [dx, dy] = toScreen(n.x, n.y, b, w, h);
+    const held = door.heldBy && door.heldBy.length > 0;
+    ctx.beginPath();
+    ctx.arc(dx, dy, held ? 11 : 8, 0, Math.PI * 2);
+    ctx.strokeStyle = held ? '#f5a623' : '#4a5a7a';
+    ctx.lineWidth = held ? 3 : 1.5;
+    ctx.stroke();
+    if (held) {
+      ctx.fillStyle = 'rgba(245,166,35,.18)';
+      ctx.fill();
+      ctx.fillStyle = '#f5a623';
+      ctx.font = 'bold 10px system-ui';
+      ctx.fillText(door.heldBy.map(r => r.split(':')[1]).join(','), dx + 13, dy - 8);
+    }
+  }
+
   // robots
   for (const r of state.robots.values()) {
     if (!r.position) continue;

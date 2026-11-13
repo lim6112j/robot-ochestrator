@@ -46,9 +46,11 @@ See the E2E notes in `PLAN.md`: two robots from different manufacturers
 requesting the same door, one admitted and the other held, observed through
 the control dashboard.
 
-## What is verified, and what is not
+## What is verified, end to end
 
-Verified in the container:
+Both halves now exist and were run against the live simulator and broker.
+
+**RMF side** (container):
 
 * `door_states` is published, `DOOR-IN` and `DOOR-OUT` both start `MODE_CLOSED`.
 * A `door_requests` message opens the door (`MODE_OPEN`) and logs who asked.
@@ -56,13 +58,40 @@ Verified in the container:
 * A request for an unknown door is refused with a warning and the state is
   unchanged.
 
-Not yet verified: a robot actually *waiting*. The simulator
-(`crates/vda5050-sim`) has no notion of a door — it treats `DOOR-*` as an
-ordinary node and drives straight through. So the reservation protocol is
-correct on the RMF side, but nothing downstream of it observes the door yet,
-and no robot is ever held back.
+**Robot side** (`crates/vda5050-sim/src/door.rs`, `robot.rs`):
 
-That gap is the remaining work for Phase 2: the simulator needs to honour
-`door_name` on its lanes, either by refusing to enter a closed door or by
-asking and waiting. Until then the door adapter is exercised but not
-load-bearing, and this README says so rather than implying otherwise.
+Two robots from different manufacturers (`acme:AMR-002` and
+`sweepco:SCR-001`) were both sent a mission whose first node is `DOOR-IN`. The
+simulator log shows the second robot being held and then released:
+
+```
+waiting for door held by another robot robot=sweepco:SCR-001 door=DOOR-IN holder=acme:AMR-002
+door granted, resuming robot=sweepco:SCR-001 door=DOOR-IN
+```
+
+and the control screen showed the handover through `/api/shared-resources`:
+
+```
+t+ 1s  ['DOOR-IN<-AMR-002']
+t+15s  ['DOOR-IN<-AMR-002', 'DOOR-IN<-SCR-001']   ← second robot waiting
+t+21s  ['DOOR-IN<-SCR-001']                        ← first has left
+```
+
+## How the wait reaches the dashboard
+
+VDA 5050 v3 has no field for "waiting for a shared resource", and a robot
+stopped at a doorway is indistinguishable from one that lost its connection in
+a position plot. The simulator therefore reports the wait as a
+`WAITING_FOR_DOOR` entry in `state.errors`, which `errorType` permits because
+it is an extensible string. `RobotAdapter::holds()` reads it, so
+`/api/shared-resources` can say who is held and why.
+
+Two details there are easy to get wrong and are pinned by tests:
+
+* `errorReferences` is an array of `{referenceKey, referenceValue}` objects,
+  **not** bare strings. A string passes Rust's type check but fails schema
+  validation, which drops the whole `state` message — the gateway's
+  `messages_rejected` going non-zero is the symptom.
+* The hold-off has to be long enough to observe. The default 6s made the wait
+  a 0.25s window that polling missed; `deploy/sim-warehouse.yaml` sets 25s so
+  the handover is visible.

@@ -50,6 +50,12 @@ impl Default for BrokerConfig {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct WorldConfig {
+    /// Node ids with this prefix are shared resources (doors).
+    #[serde(default = "default_door_prefix")]
+    pub door_prefix: String,
+    /// Seconds a granted door stays open, long enough for the holder to clear.
+    #[serde(default = "default_door_hold_off")]
+    pub door_hold_off_s: f64,
     /// Path to the map graph JSON file.
     pub map: String,
     /// Simulation tick rate.
@@ -66,8 +72,20 @@ impl Default for WorldConfig {
             map: "deploy/maps/plant-a.l1.json".to_owned(),
             tick_hz: 20.0,
             start_nodes: Vec::new(),
+            door_prefix: default_door_prefix(),
+            door_hold_off_s: default_door_hold_off(),
         }
     }
+}
+
+/// Default door node prefix.
+fn default_door_prefix() -> String {
+    "DOOR".to_owned()
+}
+
+/// Default door hold-off in seconds.
+fn default_door_hold_off() -> f64 {
+    6.0
 }
 
 /// Battery model.
