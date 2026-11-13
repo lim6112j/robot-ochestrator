@@ -15,7 +15,7 @@
 |---|---|---|
 | **Phase 0** 기준선 | ✅ 완료 | Cargo workspace(5크레이트) · 공식 v3.0.0 스키마 8개 반입(+문법 복원) · 로컬 MQTT 브로커 · 가상 플릿 5대 기동 · `cargo test` 13개 통과 · clippy 경고 0 |
 | **Phase 1** 표준화 코어 | ✅ 완료 | 게이트웨이(MQTT 구독·스키마 검증·캐노니컬 정규화·프레즌스·DLQ·메트릭) · REST/WebSocket · 디지털 트윈 대시보드 · 임무 라운드트립 검증 완료 |
-| **Phase 2** RMF 연동 | ⏳ 대기 | `rclrs` fleet adapter 스파이크(ADR-004) |
+| **Phase 2** RMF 연동 | 🔵 결정 완료 | Jazzy(Docker) · Python 어댑터(2안) · Full Control — 2026-11-13 확정, 착수 준비 |
 | **Phase 3~5** | ⏳ 대기 | 3D 트윈(Bevy) · 실제 제조사 온보딩 · 운영화 |
 
 ### 웹 화면 검증 (2026-11-12, Playwright + Chrome 스크린샷)
@@ -316,17 +316,48 @@ robot-control-system/                  # Cargo workspace (단일 언어)
 - 부하: 토픽별 샤드 워커 + `tokio::sync::mpsc` 백프레셔, 배치 DB 적재
 
 ### 6.2 결정 기록(ADR) 후보
+
+> **상태 범례**: `제안`(의도만 있음) · `확정`(결정·근거 기록됨) · `미작성`(아직 문서 없음)
+> 현재 ADR 문서는 작성되지 않았으며(`docs/adr/` 비어 있음), 아래는 결정 목록과 근거 요약이다.
+
 | ID | 결정 | 상태 |
 |---|---|---|
 | ADR-001 | VDA 5050 v3.0.0을 유일한 로봇 계약으로 채택 | 제안 |
 | ADR-002 | 조율은 Open-RMF, 운송은 VDA 5050 (계층 분리) | 제안 |
 | ADR-003 | 관제는 비안전 계층, eStop는 온보드 안전에만 의존 | 제안 |
-| ADR-004 | Rust 단일 언어 + RMF 경계만 rclrs(폴백: Python 어댑터) | Phase 2 스파이크 후 확정 |
+| ADR-004 | **RMF 경계 언어: Python** (`fleet_adapter_template`) | **확정** (2026-11-13) |
 | ADR-005 | 내부 캐노니컬 모델은 v3 기준, v2.x는 게이트웨이에서 컨버전 | 제안 |
 | ADR-006 | UI는 leptos WASM 단일 화면, MQTT 소유권은 서버에 | 제안 |
 | ADR-007 | 의존성은 `cargo vendor` 반입(폐쇄망 빌드) | 제안 |
 | ADR-008 | 디지털 트윈 = 관제 캔버스, 시뮬레이터는 MQTT 데이터 소스로 분리 | 제안 |
 | ADR-009 | 렌더는 2D 우선, 3D 트윈은 Bevy 별도 크레이트(웹/데스크톱 동시 타겟) | 제안 |
+
+#### ADR-004 상세 (2026-11-13 확정)
+
+- **결정**: RMF fleet adapter 는 **Python `fleet_adapter_template`** 기반. Rust 는
+  게이트웨이·API·UI·임무 발행에만 집중한다. 통제 수준은 **Full Control**
+  (기본값, 런타임 설정값으로 노출). 실행 환경은 **Docker 컨테이너**
+  (Ubuntu 24.04 + ROS 2 Jazzy).
+- **배경**: Rust 단일 언어 원칙("use rust")과 대립한다. rclrs 로 직접 `full_control`
+  어댑터를 쓰면 언어는 하나로 유지되지만, **트래픽 협상 로직(입찰 추정·일정
+  준수·재협상)을 우리가 직접 구현**해야 한다.
+- **선택 근거**:
+  1. 어댑터는 RMF 메시지 ↔ VDA 5050 MQTT 를 번역하는 **얇고 교체 가능한 경계
+     부품**이다. 어댑터 경계는 이미 trait 로 고정돼 있어 나중에 갈아끼울 수 있다.
+  2. Python 템플릿은 Open-RMF 레퍼런스 구현이라 협상 로직이 검증·문서화돼 있다.
+     이 부분을 Rust 로 다시 쓰면 Phase 2 기간이 몇 배로 늘고 검증 부담도 커진다.
+  3. rclrs 는 README 에 **"안정성 보장 없음(no stability guarantees)"** 이라고
+     명시돼 있다. 물론 Rust 가 ROS 2 공식 클라이언트 라이브러리가 되는 과정
+     (rolling 편입, 이후 릴리스 정식 탑재)이라 전망은 좋으나, **현재 시점의
+     안정성은 그대로**다.
+  4. Rust 의 이점(타입 안전·단일 언어)은 우리 서비스 쪽에서 얻는 것이 크고,
+     어댑터는 정확성이 가장 중요한 곳이라 지루하고 검증된 길을 택한다.
+- **재검토 조건**: rclrs 가 안정성 보장을 선언하고, RMF 메시지 생성이 우리 요구
+  (주기 상태 발행, 경로 요청 수신)를 만족하면 Rust 어댑터로 교체를 검토한다.
+- **ROS 2 디스트로: Jazzy** — RMF 저장소가 "현재 지원 디스트로: Jazzy" 라고
+  명시한다. Lyrical(2026.05 출시, LTS ~2031)이 더 오래 가지만 RMF 바이너리
+  패키지가 없어 전부 소스 빌드해야 하므로, 디스트로는 RMF 가용성이 결정한다.
+  (Jazzy 지원 기간: ~2029.05)
 
 ### 6.3 VDA 5050 타입 크레이트(표준 드리프트 방지)
 - `build.rs`가 `schemas/vda5050/<version>/*.schema`을 `typify`로 Rust 타입으로 생성
@@ -355,21 +386,29 @@ robot-control-system/                  # Cargo workspace (단일 언어)
 - 완료 기준: 3종(물류/청소/감시) 가상 플릿이 한 화면에서 제어, 모든 명령 감사 기록.
 
 ### Phase 2 — RMF 조정 연동 (2~3주)
-- 빌딩 맵(`rmf_traffic_editor` 내비 그래프, 층, 차선, 문/엘리베이터 워크셀).
-- **RMF 경계 스파이크(의사결정 게이트)**: `rclrs` 0.8로 Rust fleet adapter를 만들 것인지,
-  아니면 `fleet_adapter_template`(Python)로 두고 Rust 쪽은 게이트웨이/BFF/UI만 담당할지.
-  - Rust 안(1안): `rmf_fleet_msgs`/`rmf_traffic_msgs`를 직접 다루는 `full_control` 어댑터.
-    장점은 단일 언어, 단점은 교통 협상 로직을 우리가 구현해야 하고 rclrs가
-    "안정성 보장 없음(no stability guarantees)" 상태라는 점.
-  - Python 안(2안): RMF 어댑터만 Python으로 두고, 우리 Rust 서비스는 VDA 5050/REST 경계만 담당.
-  - 판단 기준: Phase 0 말 샘플 노드 2개를 rclrs로 띄워 pub/sub·QoS·메시지 생성이 우리
-    요구(주기 상태 발행, 경로 요청 수신)를 만족하는지 확인 후 결정.
-- `rmf-fleet-adapter` (full_control) 구현 — 모드 A/B 모두 지원하도록 "직결 로봇"과
-  "플릿 매니저" 두 프로파일.
-- door/lift adapter(공유 설비) 1종 이상.
-- 완료 기준: 좁은 복도 교차 상황에서 두 로봇이 RMF 교통 협상으로 교착 없이 통과,
-  공유 자원(문) 예약이 임무에 반영.
 
+> **확정된 결정 (2026-11-13, ADR-004)**: 디스트로 **Jazzy**(Ubuntu 24.04) ·
+> 경계 언어 **Python `fleet_adapter_template`** · 통제 수준 **Full Control** ·
+> 실행 환경 **Docker 컨테이너**. 근거와 재검토 조건은 6.2절 ADR-004 상세 참조.
+> 따라서 원래의 "경계 스파이크(의사결정 게이트)"는 **수행하지 않는다** — 이미 결정됨.
+
+- **환경 구성**: `deploy/rmf/` 에 Ubuntu 24.04 + Jazzy 컨테이너. `rmf_core` ·
+  `rmf_fleet_adapter` · `rmf_traffic_editor` 바이너리 패키지 설치 검증.
+  (RMF 는 Jazzy 만 공식 지원하므로 디스트로는 가용성이 결정함.)
+- **빌딩 맵 변환**: `deploy/maps/plant-b.l1.json` → RMF 내비 그래프
+  (층, 차선 lane, 문/엘리베이터 워크셀). 변환기를 Rust 로 작성(`tools/lif2rmf`) —
+  수동 변환은 맵이 바뀔 때마다 드리프트하므로 코드로 만든다.
+- **`rmf-fleet-adapter` (full_control, Python)**: 모드 A/B 프로파일
+  (직결 로봇 / 플릿 매니저) 모두 지원. RMF 메시지 ↔ VDA 5050 MQTT 번역.
+  - 어댑터는 `RobotAdapter` trait 뒤에 둔다(Rust 쪽 경계는 그대로 유지).
+  - 어댑터가 게이트웨이와 만나는 접점은 **REST `/dispatches` + MQTT `order`** 둘 다
+    가능하도록 하되, 1차는 게이트웨이가 이미 검증된 MQTT `order` 발행을 재사용.
+- **door/lift adapter**(공유 설비) 1종 이상 — plant-b 에 `DOOR-IN`/`DOOR-OUT` 이 있으므로
+  이를 워크셀로 모델링하면 검증 시나리오가 그대로 나온다.
+- **완료 기준**: 좁은 통로 교차 상황에서 서로 다른 제조사 로봇 2대가 RMF 교통 협상으로
+  교착 없이 통과하고, 공유 자원(문) 예약이 임무에 반영된다.
+- **주의**: 어댑터가 Python 이라는 점은 ADR-004 로 기록된 의도적 예외다. 나중에
+  rclrs 가 안정성 보장을 선언하면 어댑터만 교체한다(경계 trait 불변).
 ### Phase 3 — 관제 UI + 디지털 트윈 (2~3주)
 - 단일 화면(leptos WASM + 캔버스): **디지털 트윈 캔버스**(LIF 지오메트리 + 로봇 위치·자세·
   계획 경로·존·궤적) 위에 관제 패널(플릿/로봇 목록, 임무 보드, 배터리·오류, 감사 로그)을 오버레이.
@@ -436,10 +475,11 @@ robot-control-system/                  # Cargo workspace (단일 언어)
 ## 10. 다음 단계
 
 1. Phase 0 착수 승인(스택은 **Rust로 확정**).
-2. ROS 2 디스트로 확정: **Jazzy(권장)** vs Lyrical.
+2. ~~ROS 2 디스트로 확정: Jazzy(권장) vs Lyrical~~ → **Jazzy 확정** (2026-11-13, ADR-004 상세).
 3. 실제 연결 대상 로봇 목록과 각각의 인터페이스(VDA 5050 버전, 자체 FMS 여부, ROS 2/Nav2 여부)
    — **Phase 4 선행 조건이며 Phase 0~3을 막지 않음**(11절 참조).
-4. RMF 경계 언어: Rust `rclrs` 어댑터(1안) vs Python 폴백(2안) — Phase 2 스파이크에서 결정.
+4. ~~RMF 경계 언어: rclrs(1안) vs Python 폴백(2안)~~ → **Python 확정** (2026-11-13, ADR-004).
+   통제 수준 **Full Control**, 실행 환경 **Docker(Ubuntu 24.04 + Jazzy)**.
 5. UI: leptos WASM 단일 화면(권장) vs `rmf-web` 대시보드 일부 활용.
 
 ---
