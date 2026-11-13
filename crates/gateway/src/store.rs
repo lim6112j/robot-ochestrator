@@ -68,8 +68,17 @@ pub struct Metrics {
 }
 
 /// The shared gateway state.
-#[derive(Debug)]
+///
+/// `Debug` is hand-written: the field is a map of trait objects, which cannot
+/// derive it, and a derived `Debug` on the whole store is more use than a
+/// manual one for every field.
 pub struct Store {
+    /// Registered fleet adapters, keyed by manufacturer.
+    ///
+    /// The gateway does not drive robots through these — it dispatches over
+    /// MQTT — but they answer "what can this fleet do", which is what the
+    /// coordination layer needs and what makes an adapter swappable.
+    adapters: RwLock<HashMap<String, Arc<dyn robot_adapter::RobotAdapter>>>,
     robots: RwLock<HashMap<String, CanonicalRobot>>,
     events: RwLock<VecDeque<GatewayEvent>>,
     dlq: RwLock<VecDeque<DlqEntry>>,
@@ -83,12 +92,25 @@ pub struct Store {
 /// Maximum number of kept events and DLQ entries.
 const DEFAULT_MAX_LOG: usize = 500;
 
+impl std::fmt::Debug for Store {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Store")
+            .field("robots", &self.robots.try_read().map(|r| r.len()))
+            .field("events", &self.events.try_read().map(|e| e.len()))
+            .field("dlq", &self.dlq.try_read().map(|d| d.len()))
+            .field("adapters", &self.adapters.try_read().map(|a| a.len()))
+            .field("metrics", &self.metrics.try_read().map(|m| m.messages_seen))
+            .finish_non_exhaustive()
+    }
+}
+
 impl Store {
     /// Create a new store.
     #[must_use]
     pub fn new(heartbeat_timeout_s: f64) -> Arc<Self> {
         let (tx, _rx) = broadcast::channel(256);
         Arc::new(Self {
+            adapters: RwLock::new(HashMap::new()),
             robots: RwLock::new(HashMap::new()),
             events: RwLock::new(VecDeque::new()),
             dlq: RwLock::new(VecDeque::new()),
@@ -103,6 +125,69 @@ impl Store {
     #[must_use]
     pub fn subscribe(&self) -> broadcast::Receiver<String> {
         self.tx.subscribe()
+    }
+
+    /// Register a fleet adapter for one manufacturer.
+    pub async fn register_adapter(&self, adapter: Arc<dyn robot_adapter::RobotAdapter>) {
+        self.adapters
+            .write()
+            .await
+            .insert(adapter.manufacturer().to_owned(), adapter);
+    }
+
+    /// Every registered adapter.
+    pub async fn adapters(&self) -> Vec<Arc<dyn robot_adapter::RobotAdapter>> {
+        self.adapters.read().await.values().cloned().collect()
+    }
+
+    /// The adapter for a robot id, if one is registered for its manufacturer.
+    pub async fn adapter_for(
+        &self,
+        robot_id: &str,
+    ) -> Option<Arc<dyn robot_adapter::RobotAdapter>> {
+        let manufacturer = robot_id.split_once(':').map(|(m, _)| m)?;
+        self.adapters.read().await.get(manufacturer).cloned()
+    }
+
+    /// Shared resources across every registered adapter.
+    pub async fn shared_resources(&self) -> Vec<robot_adapter::SharedResource> {
+        let adapters = self.adapters.read().await;
+        let mut resources = Vec::new();
+        for adapter in adapters.values() {
+            resources.extend(adapter.shared_resources().await);
+        }
+        resources
+    }
+
+    /// Feed a `state` message to the adapters that speak for its manufacturer.
+    ///
+    /// The adapters are not in the dispatch path — the gateway publishes over
+    /// MQTT — but they answer "what can this fleet do", which is only correct
+    /// if they see the same states the gateway does.
+    pub async fn observe(&self, state: &vda5050_types::types::State) {
+        let adapters = self.adapters.read().await;
+        if let Some(adapter) = adapters.get(&state.manufacturer) {
+            let adapter = Arc::clone(adapter);
+            drop(adapters);
+            adapter.observe_state(state).await;
+        }
+    }
+
+    /// Feed a connection change to the adapters, including Last Will teardowns.
+    pub async fn observe_connection(
+        &self,
+        robot_id: &str,
+        connection: vda5050_types::canonical::ConnectionState,
+    ) {
+        let Some((manufacturer, serial)) = robot_id.split_once(':') else {
+            return;
+        };
+        let adapters = self.adapters.read().await;
+        if let Some(adapter) = adapters.get(manufacturer) {
+            let adapter = Arc::clone(adapter);
+            drop(adapters);
+            adapter.observe_connection(serial, connection).await;
+        }
     }
 
     /// Insert or update a robot.
@@ -162,6 +247,7 @@ impl Store {
         robot.last_seen.clone_from(&now);
         drop(robots);
         if changed {
+            self.observe_connection(robot_id, state).await;
             let event = match state {
                 ConnectionState::Online => GatewayEvent::RobotOnline {
                     robot_id: robot_id.to_owned(),
@@ -190,6 +276,8 @@ impl Store {
         }
         drop(robots);
         for robot_id in changed {
+            self.observe_connection(&robot_id, ConnectionState::ConnectionBroken)
+                .await;
             self.record(GatewayEvent::RobotOffline {
                 robot_id,
                 reason: "heartbeat timeout".to_owned(),

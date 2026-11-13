@@ -1,0 +1,18 @@
+[package]
+name = "robot-adapter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "RobotAdapter: the contract between the gateway and any fleet adapter"
+
+[dependencies]
+vda5050-types = { path = "../vda5050-types" }
+async-trait = "0.1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["sync"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "sync"] }

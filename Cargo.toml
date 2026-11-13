@@ -4,6 +4,7 @@ members = [
     "crates/vda5050-types",
     "crates/vda5050-sim",
     "crates/gateway",
+    "crates/robot-adapter",
     "tools/conformance",
     "tools/broker",
     "tools/lif2rmf",

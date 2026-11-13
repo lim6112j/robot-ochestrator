@@ -19,6 +19,25 @@ use gateway::auth::ApiToken;
 use gateway::ingest::{self, IngestConfig};
 use gateway::orders::OrderPublisher;
 use gateway::store::Store;
+use robot_adapter::mqtt::MqttRobotAdapter;
+
+/// Node ids on the served map that behave as doors.
+///
+/// Naming, not geometry, is the signal: `DOOR-*` nodes are shared resources.
+/// An adapter that knows this can tell the coordination layer which robots are
+/// contending for one physical doorway.
+fn door_nodes(map: &Value) -> Vec<String> {
+    map.get("nodes")
+        .and_then(Value::as_object)
+        .map(|nodes| {
+            nodes
+                .keys()
+                .filter(|id| id.starts_with("DOOR"))
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default()
+}
 
 /// Command line arguments.
 #[derive(Debug, Parser)]
@@ -55,6 +74,13 @@ struct Args {
     /// Building map served to the dashboard.
     #[arg(long, default_value = "deploy/maps/plant-b.l1.json")]
     map: PathBuf,
+
+    /// Register an MQTT adapter for this manufacturer.
+    ///
+    /// Repeatable. An adapter reports what its fleet can do, which is what the
+    /// coordination layer needs; the gateway still dispatches over MQTT.
+    #[arg(long, env = "ADAPTER_MANUFACTURER")]
+    adapter_manufacturer: Vec<String>,
 
     /// Shared secret required on every `/api/*` route and the WebSocket.
     ///
@@ -94,6 +120,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "api token not set — anyone who can reach port {} can dispatch missions.              set --api-token (or API_TOKEN) to require authentication",
             args.http_addr.port()
         );
+    }
+
+    // Registering an adapter is optional: a fleet with nothing behind it yet
+    // simply reports no robots, and the gateway keeps working.
+    for manufacturer in &args.adapter_manufacturer {
+        let adapter = MqttRobotAdapter::new(
+            manufacturer.clone(),
+            args.interface.clone(),
+            args.major_version,
+        )
+        .with_door_nodes(door_nodes(&map_json));
+        info!(%manufacturer, "registered fleet adapter");
+        store.register_adapter(Arc::new(adapter)).await;
     }
 
     let ingest_config = IngestConfig {

@@ -53,6 +53,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/dlq", get(dlq))
         .route("/api/map", get(map))
         .route("/api/orders", post(publish_order))
+        .route("/api/adapters", get(adapters))
+        .route("/api/shared-resources", get(shared_resources))
         .route("/api/instant-actions", get(instant_action_catalog))
         .route(
             "/api/robots/{robot_id}/instant-actions",
@@ -142,6 +144,48 @@ async fn dlq(State(state): State<AppState>) -> Json<Vec<serde_json::Value>> {
 /// The building map used by the dashboard.
 async fn map(State(state): State<AppState>) -> Json<Value> {
     Json((*state.map_json).clone())
+}
+
+/// Registered fleet adapters and what they can do.
+async fn adapters(State(state): State<AppState>) -> Json<Vec<serde_json::Value>> {
+    let mut out = Vec::new();
+    for adapter in state.store.adapters().await {
+        let robots = adapter.robots().await;
+        out.push(serde_json::json!({
+            "manufacturer": adapter.manufacturer(),
+            "robots": robots.len(),
+            "robotIds": robots.iter().map(|r| r.robot_id.clone()).collect::<Vec<_>>(),
+            "sharedResources": adapter.shared_resources().await,
+        }));
+    }
+    Json(out)
+}
+
+/// Shared resources (doors, lifts) robots may contend for.
+///
+/// The dashboard uses this to explain why a robot is waiting: a robot stopped
+/// at a door and a robot that lost its connection look identical in a
+/// position plot.
+async fn shared_resources(State(state): State<AppState>) -> Json<Vec<serde_json::Value>> {
+    let mut out = Vec::new();
+    for adapter in state.store.adapters().await {
+        for resource in adapter.shared_resources().await {
+            let mut held_by = Vec::new();
+            for robot in adapter.robots().await {
+                if adapter.holds(&robot.robot_id, &resource.id).await {
+                    held_by.push(robot.robot_id);
+                }
+            }
+            out.push(serde_json::json!({
+                "id": resource.id,
+                "kind": format!("{:?}", resource.kind),
+                "contenders": resource.contenders,
+                "heldBy": held_by,
+                "manufacturer": adapter.manufacturer(),
+            }));
+        }
+    }
+    Json(out)
 }
 
 /// The instant actions the control screen offers.

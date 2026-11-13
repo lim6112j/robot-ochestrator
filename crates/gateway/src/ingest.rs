@@ -153,6 +153,7 @@ async fn handle_message(
                                 .await
                                 .map(|r| r.order_id)
                                 .unwrap_or_default();
+                            store.observe(&state).await;
                             store.upsert(robot.clone()).await;
                             if first_seen {
                                 store

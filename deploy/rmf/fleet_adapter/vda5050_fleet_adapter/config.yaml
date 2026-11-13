@@ -1,0 +1,60 @@
+# VDA 5050 fleet adapter configuration.
+#
+# The `fleet_manager` section is the only part that differs from the upstream
+# template: `prefix` is an MQTT broker instead of a REST URL, and the robots
+# are listed as `manufacturer:serialNumber`.
+
+rmf_fleet:
+  name: "vda5050Fleet"
+  limits:
+    linear: [0.8, 0.5]
+    angular: [0.6, 2.0]
+  profile:
+    footprint: 0.35
+    vicinity: 0.6
+  reversible: True
+  battery_system:
+    voltage: 24.0
+    capacity: 30.0
+    charging_current: 5.0
+  mechanical_system:
+    mass: 60.0
+    moment_of_inertia: 20.0
+    friction_coefficient: 0.22
+  ambient_system:
+    power: 20.0
+  tool_system:
+    power: 0.0
+  recharge_threshold: 0.10
+  recharge_soc: 1.0
+  publish_fleet_state: 10.0
+  account_for_battery_drain: True
+  task_capabilities:
+    loop: True
+    delivery: True
+  actions: ["pick", "drop", "initPosition", "charge", "patrol", "cleanZone"]
+  finishing_request: "park"
+  responsive_wait: True
+  robots:
+    acme:AMR-001:
+      charger: "CHG-01"
+      responsive_wait: False
+    acme:AMR-002:
+      charger: "CHG-02"
+  robot_state_update_frequency: 2.0
+
+fleet_manager:
+  # MQTT broker, not a REST prefix.
+  prefix: "mosquitto:1883"
+  interface_name: "vda5050"
+  major_version: 3
+  robots:
+    - "acme:AMR-001"
+    - "acme:AMR-002"
+
+# VDA 5050 maps are already in metres and RMF works in metres, so no
+# reference-coordinate transform is needed.
+reference_coordinates:
+  L1:
+    rmf: [[0, 0], [36, 0], [36, 24], [0, 24]]
+    robot: [[0, 0], [36, 0], [36, 24], [0, 24]]

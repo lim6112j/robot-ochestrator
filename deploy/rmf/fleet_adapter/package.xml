@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>vda5050_fleet_adapter</name>
+  <version>1.0.0</version>
+  <description>VDA 5050 full_control fleet adapter for Open-RMF (ADR-004).</description>
+  <maintainer email="dev@example.com">Robot Control System</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclpy</depend>
+  <depend>rmf_fleet_msgs</depend>
+  <depend>rmf_fleet_adapter_python</depend>
+  <exec_depend>paho-mqtt</exec_depend>
+</package>

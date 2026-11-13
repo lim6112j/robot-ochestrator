@@ -900,6 +900,7 @@ dependencies = [
  "axum 0.8.9",
  "clap",
  "futures-util",
+ "robot-adapter",
  "rumqttc",
  "serde",
  "serde_json",
@@ -2050,6 +2051,18 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "robot-adapter"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "vda5050-types",
 ]
 
 [[package]]

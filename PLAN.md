@@ -18,6 +18,28 @@
 | **Phase 2** RMF 연동 | 🔵 결정 완료 | Jazzy(Docker) · Python 어댑터(2안) · Full Control — 2026-11-13 확정, 착수 준비 |
 | **Phase 3~5** | ⏳ 대기 | 3D 트윈(Bevy) · 실제 제조사 온보딩 · 운영화 |
 
+#### 어댑터 경계 trait 추가 (2026-11-13)
+
+`crates/robot-adapter`: `RobotAdapter` trait. ADR-004 가 Python 어댑터를 택한
+이유가 "교체 가능한 얇은 경계" 였으므로, 그 경계를 실제로 Rust 쪽에 고정했다.
+
+- 메서드: `manufacturer` · `robots` · `dispatch` · `instant_action` ·
+  `shared_resources` · `holds` · (`observe_state`/`observe_connection` 선택)
+- `AdapterError` 가 `Dispatch`(로봇이 거부 — 아무것도 돌지 않음) 와
+  `Transport`(도달 불가 — 운영자가 알 수 없음) 를 구분한다. 합치면 운영자가
+  필요한 정보가 사라진다.
+- 구현체: `MqttRobotAdapter`(VDA 5050 over MQTT, Python 어댑터의 Rust 대응) ·
+  `NullAdapter`(아무도 응답하지 않음 — 온보딩 전 플릿용)
+- 게이트웨이: `--adapter-manufacturer` (반복 가능, env `ADAPTER_MANUFACTURER`).
+  `GET /api/adapters`, `GET /api/shared-resources`.
+- **조용히 실패한 버그 2건**:
+  1. `observe_state` 를 inherent 메서드로 뒀더니 `Arc<dyn RobotAdapter>` 로
+     부르면 트레잇 기본(no-op) 이 실행되어 어댑터가 로봇을 영원히 못 봤다.
+     "아직 로봇이 없구나" 와 똑같이 보인다.
+  2. `robots()` 가 시리얼 번호로 키를 잡지만 `state` 메시지에 제조사가 따로
+     있다. 검증하지 않으면 **남의 플릿 로봇을 보고**해, 조율 계층이 자기에게
+     속하지 않은 플릿을 대신 협상한다.
+
 #### 맵 변환기 추가 (2026-11-13)
 
 `tools/lif2rmf`: VDA 5050 맵(노드/엣지 JSON) → RMF building map(YAML).
