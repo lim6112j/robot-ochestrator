@@ -1,42 +1,38 @@
-#!/usr/bin/env python3
 """
-Probe for RMF traffic arbitration on our warehouse nav graph.
+Probe RMF traffic arbitration on our warehouse nav graph.
 
-STATUS: incomplete. See "What this does not yet prove" below.
+What it verifies
+----------------
+Two participants — stand-ins for robots from different manufacturers — are
+registered, given conflicting itineraries on one shared lane, and the
+schedule's response is reported. The negotiation **starts**: the schedule node
+logs `Require negotiation for: 0 1`, and the negotiation topics carry a notice
+for `participants: [0, 1]` with a state-tree node for each.
 
-It runs the pieces that decide who goes first through a shared aisle:
+What it does not verify
+-----------------------
+The negotiation's conclusion. Reaching one needs something that answers the
+schedule's proposals, and this probe only impersonates a participant — it has
+no policy about who should give way. The answerer is the fleet adapter in
+`deploy/rmf/fleet_adapter`, which is a separate piece of work.
 
-  building_map_server  → publishes our nav graph on /map
-  rmf_traffic_schedule → arbitrates participant itineraries
-  this script          → registers two participants, submits conflicting
-                         itineraries, and reports who was admitted when.
+Two silent failures worth knowing about
+---------------------------------------
+Both of these produced exactly the same symptom — "no negotiation at all" —
+and neither raised an error:
 
-The participants are stand-ins for two robots from different manufacturers.
-What is being verified is that RMF's schedule accepts *our* map and *our*
-robot identities and actually serialises them, not that a real robot moved.
+* `ItinerarySet` waypoint `time` is an **absolute nanosecond** count on the
+  steady_clock. Values of `0, 10, 20, 30, 40` are one instant in the distant
+  past, and the schedule drops the whole itinerary without a word. Anchor on
+  `now + t * 1e9`.
+* The map name is the **level** name from the building map (`levels: L1:`), so
+  routes must say `L1`. A name the schedule has never seen is not an error;
+  the route is simply ignored.
 
-What this does not yet prove
-----------------------------
-No negotiation is ever started, and the reason is found: the schedule node
-does not subscribe to /map. Verified with `ros2 topic info /map`, which
-reports `Subscription count: 0` even after 25s of discovery time. So the
-schedule runs without a nav graph, and without one there is nothing to
-arbitrate.
-
-Everything upstream of that works — registration, itinerary submission,
-live participant state and progress reporting all reach the node — which is
-what narrows the gap to the nav-graph link.
-
-What is missing: the component that turns a `.building.yaml` into a schedule
-nav-graph patch. In RMF that is `rmf_traffic_editor`, but this image ships
-only `rmf_traffic_editor_assets` — the Qt editor binary is not installed, and
-a headless container cannot run it. Supplying the patch needs either a source
-build of rmf_traffic_editor or composing `SchedulePatch` messages directly
-through RMF's API.
-
-Not verified either, and not claimed: the fleet adapter. Translating an RMF
-itinerary into a VDA 5050 order is `deploy/rmf/fleet_adapter`'s job and is
-separate work.
+An earlier version of this file concluded that the schedule not subscribing to
+`/map` was the blocker. It does report `Subscription count: 0`, but that is by
+design — the schedule arbitrates in `(map, x, y, t)` space and never needs the
+nav graph.
 """
 
 import sys
@@ -53,6 +49,10 @@ from rmf_traffic_msgs.msg import (
     ItineraryDelay,
     ItineraryReached,
     ItinerarySet,
+    NegotiationAck,
+    NegotiationKey,
+    NegotiationProposal,
+    NegotiationRejection,
     Participant,
     ParticipantDescription,
     Participants,
@@ -66,8 +66,11 @@ from rmf_traffic_msgs.srv import RegisterParticipant
 
 
 def waypoint(t, x, y, vx=0.0, vy=0.0):
+    """One trajectory waypoint. `velocity` is the instantaneous velocity, which
+    the schedule uses to know the robot is actually moving; a zero velocity
+    everywhere makes the participant look parked, and a parked robot has
+    nothing to negotiate."""
     w = TrajectoryWaypoint()
-    w.time = t
     # `time` is int64 — a float here trips an assertion inside the message
     # converter, which surfaces as a hard abort rather than a Python error.
     # `position` and `velocity` are float64[3], not nested Point messages.
@@ -103,7 +106,7 @@ def trajectory(points):
     passing it in here would not compile.
     """
     traj = Trajectory()
-    traj.waypoints = [waypoint(t, x, y) for (t, x, y) in points]
+    traj.waypoints = [waypoint(*p) for p in points]
     return traj
 
 
@@ -138,6 +141,15 @@ class ArbitrationProbe(Node):
         )
         self.delay_pub = self.create_publisher(
             ItineraryDelay, '/rmf_traffic/itinerary_delay', 10
+        )
+        # A negotiation only progresses if the participants answer the
+        # schedule's proposals. Refusing outright leaves the negotiation stuck
+        # at the notice, so the probe must speak back.
+        self.rejection_pub = self.create_publisher(
+            NegotiationRejection, '/rmf_traffic/negotiation_rejection', 10
+        )
+        self.ack_pub = self.create_publisher(
+            NegotiationAck, '/rmf_traffic/negotiation_ack', 10
         )
 
     def register(self, name, owner, robot_profile):
@@ -190,12 +202,36 @@ def main(argv=None):
     # on it travelling opposite ways. Off-graph coordinates are silently
     # ignored by the schedule, which is why an earlier diagonal route produced
     # no negotiation at all.
-    aisle = [(0.0, 6.0, 0.0), (9.0, 6.0, 10.0), (18.0, 6.0, 20.0), (27.0, 6.0, 30.0), (36.0, 6.0, 40.0)]
+    # RMF waypoint times are *absolute* nanoseconds on the steady_clock, not
+    # seconds and not offsets. A route stamped at 0,10,20,30,40 nanoseconds is
+    # one instant in the far past, and the schedule drops it without a word —
+    # which is indistinguishable from "no conflict". Anchor on now.
+    now_ns = node.get_clock().now().nanoseconds
+    aisle = [
+        (0.0, 6.0, 0.0),
+        (9.0, 6.0, 10.0),
+        (18.0, 6.0, 20.0),
+        (27.0, 6.0, 30.0),
+        (36.0, 6.0, 40.0),
+    ]
+    aisle = [(now_ns + int(t * 1e9), x, y) for (x, y, t) in aisle]
     for index, (name, points) in enumerate([
         ('acme:AMR-002', aisle),
         # Same lane, opposite direction, same time window.
-        ('sweepco:SCR-001', list(reversed([(t, x, y) for (x, y, t) in aisle]))),
+        ('sweepco:SCR-001', list(reversed(aisle))),
     ]):
+        # Give each waypoint a real instantaneous velocity from its own
+        # neighbours. The schedule uses velocity to know the participant is
+        # actually moving, and a robot that looks parked has nothing to
+        # negotiate with anyone.
+        for i, (t, x, y) in enumerate(points):
+            if i + 1 < len(points):
+                t2, x2, y2 = points[i + 1]
+                dt = max(t2 - t, 1e-6)
+                points[i] = (t, x, y, (x2 - x) / dt, (y2 - y) / dt)
+            else:
+                _, x0, y0, _, _ = points[i - 1]
+                points[i] = (t, x, y, (x - x0) / max(t - points[i - 1][0], 1e-6), 0.0)
         iset = ItinerarySet()
         iset.participant = index
         iset.plan = 0
@@ -215,6 +251,8 @@ def main(argv=None):
         NegotiationProposal,
         NegotiationRefusal,
         NegotiationRejection,
+        NegotiationStates,
+        NegotiationStatuses,
     )
 
     node.notices = []
@@ -223,6 +261,8 @@ def main(argv=None):
     node.refusals = []
     node.rejections = []
     node.acks = []
+    node.states = []
+    node.statuses = []
 
     def make_handler(bucket, label):
         def handler(msg):
@@ -231,6 +271,8 @@ def main(argv=None):
 
     for topic, msg_type, bucket, label in [
         ('/rmf_traffic/negotiation_notice', NegotiationNotice, node.notices, 'notice'),
+        ('/rmf_traffic/negotiation_states', NegotiationStates, node.states, 'states'),
+        ('/rmf_traffic/negotiation_statuses', NegotiationStatuses, node.statuses, 'statuses'),
         ('/rmf_traffic/negotiation_proposal', NegotiationProposal, node.proposals, 'proposal'),
         ('/rmf_traffic/negotiation_ack', NegotiationAck, node.acks, 'ack'),
         ('/rmf_traffic/negotiation_refusal', NegotiationRefusal, node.refusals, 'refusal'),
@@ -240,6 +282,30 @@ def main(argv=None):
         node.create_subscription(msg_type, topic, make_handler(bucket, label), 10)
 
     # Give the schedule time to negotiate.
+    # Answer the schedule's proposals. This subscription has to exist before
+    # the negotiation starts — registering it after the itineraries are in
+    # means the first proposal is missed and the negotiation stalls at the
+    # notice with nothing to respond to.
+    node.proposals_seen = []
+
+    def on_proposal(msg):
+        node.proposals_seen.append(msg)
+        print(f"  proposal: conflict={msg.conflict_version} "
+              f"version={msg.proposal_version} for={msg.for_participant} "
+              f"accommodate={[k.participant for k in msg.to_accommodate]}")
+        rej = NegotiationRejection()
+        rej.conflict_version = msg.conflict_version
+        rej.rejected_by = msg.for_participant
+        rej.table = [NegotiationKey(participant=0, version=0),
+                     NegotiationKey(participant=1, version=0)]
+        rej.alternatives = []
+        node.rejection_pub.publish(rej)
+        print('  → rejection sent')
+
+    node.create_subscription(
+        NegotiationProposal, '/rmf_traffic/negotiation_proposal', on_proposal, 10
+    )
+
     deadline = time.time() + 25.0
     while time.time() < deadline:
         rclpy.spin_once(node, timeout_sec=0.5)
@@ -287,6 +353,16 @@ def main(argv=None):
     print(f"  refusal    : {len(node.refusals)}")
     print(f"  rejection  : {len(node.rejections)}")
     print(f"  conclusion : {len(node.conclusions)}")
+    print(f"  states     : {len(node.states)}")
+    print(f"  statuses   : {len(node.statuses)}")
+    if node.statuses:
+        for st in node.statuses:
+            print(f"    status: {st}")
+            break
+    if node.states:
+        for st in node.states:
+            print(f"    state table: {st}")
+            break
     if node.conclusions:
         for c in node.conclusions:
             print(f"    conclusion: participant={c.participant} "

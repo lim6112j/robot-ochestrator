@@ -17,10 +17,12 @@
 //!   actually intersects that segment. `segments_intersect` rejects collinear
 //!   segments, so a door placed *along* a corridor is invisible to RMF. Doors
 //!   are therefore emitted perpendicular to the corridor they guard.
-//! * Only vertices referenced by a lane enter the nav graph, so the extra
-//!   vertices a door needs do not pollute it.
+//! * There is no bidirectional lane. The nav-graph parser adds one lane per
+//!   entry and never looks at a `bidirectional` key, so both directions of an
+//!   edge are emitted separately. `graph_idx` and `bidirectional` are
+//!   `building_map` keys that this parser ignores.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
@@ -121,11 +123,12 @@ pub struct Vertex {
 pub struct Lane {
     pub start_idx: usize,
     pub end_idx: usize,
-    pub graph_idx: i64,
-    pub is_bidirectional: bool,
     pub speed_limit: f64,
     /// Heading the robot should hold, in radians, when it has no choice.
     pub orientation: Option<f64>,
+    /// Name of the door this lane crosses, if any. RMF only reserves a door
+    /// for a robot that is actually travelling through it.
+    pub door_name: Option<String>,
 }
 
 /// A door: a shared resource a robot must reserve.
@@ -220,16 +223,14 @@ pub fn convert(map: &SourceMap, options: &Options) -> Result<BuildingMap, Error>
         });
     }
 
-    // The warehouse map emits both directions of every edge. RMF lanes are
-    // unidirectional internally, but `is_bidirectional` on one lane per pair
-    // keeps the nav graph from doubling.
-    let mut seen: BTreeSet<(String, String)> = BTreeSet::new();
+    // The warehouse map emits both directions of every edge, and the nav-graph
+    // parser keeps every lane it is given: `parse_graph.cpp` calls
+    // `graph.add_lane(begin, end)` once per entry and has no notion of a
+    // bidirectional lane. Collapsing a pair into one lane would therefore leave
+    // the reverse direction with no lane at all, stranding every robot that
+    // drove somewhere. So the directions stay separate here.
     let mut lanes = Vec::new();
     for edge in &map.edges {
-        let pair = ordered_pair(&edge.from, &edge.to);
-        if !seen.insert(pair.clone()) {
-            continue;
-        }
         let (Some(&start), Some(&end)) = (
             index_of.get(edge.from.as_str()),
             index_of.get(edge.to.as_str()),
@@ -239,12 +240,18 @@ pub fn convert(map: &SourceMap, options: &Options) -> Result<BuildingMap, Error>
         lanes.push(Lane {
             start_idx: start,
             end_idx: end,
-            graph_idx: 0,
-            is_bidirectional: true,
             speed_limit: edge.speed.unwrap_or(options.default_speed),
             // Keep the heading the map declares, so a robot arrives facing the
             // way the warehouse expects.
             orientation: map.nodes.get(&edge.to).map(|n| n.theta),
+            door_name: doors.iter().find_map(|door| {
+                let a = &vertices[door.v1_idx];
+                let b = &vertices[door.v2_idx];
+                let from = &vertices[start];
+                let to = &vertices[end];
+                segments_intersect((a.x, a.y), (b.x, b.y), (from.x, from.y), (to.x, to.y))
+                    .then(|| door.name.clone())
+            }),
         });
     }
 
@@ -259,15 +266,6 @@ pub fn convert(map: &SourceMap, options: &Options) -> Result<BuildingMap, Error>
             doors,
         }],
     })
-}
-
-/// Order a node pair so `(a, b)` and `(b, a)` compare equal.
-fn ordered_pair(a: &str, b: &str) -> (String, String) {
-    if a <= b {
-        (a.to_owned(), b.to_owned())
-    } else {
-        (b.to_owned(), a.to_owned())
-    }
 }
 
 /// Direction of the longest edge at a node, normalised.
@@ -300,6 +298,44 @@ fn corridor_axis(map: &SourceMap, node: &str) -> Option<(f64, f64)> {
     best.map(|(x, y, _)| (x, y))
 }
 
+/// Whether two line segments cross, in the way RMF's own `segments_intersect`
+/// decides it.
+///
+/// Collinear segments do **not** count as intersecting, which is the reason a
+/// door placed along a corridor is invisible to RMF: the lane runs straight
+/// through it and the reservation is never requested.
+fn segments_intersect(a1: (f64, f64), a2: (f64, f64), b1: (f64, f64), b2: (f64, f64)) -> bool {
+    fn orientation(p: (f64, f64), q: (f64, f64), r: (f64, f64)) -> i32 {
+        let v = (q.1 - p.1) * (r.0 - q.0) - (q.0 - p.0) * (r.1 - q.1);
+        if v.abs() < 1e-9 {
+            0
+        } else if v > 0.0 {
+            1
+        } else {
+            2
+        }
+    }
+
+    fn on_segment(p: (f64, f64), q: (f64, f64), r: (f64, f64)) -> bool {
+        q.0 <= p.0.max(r.0) && q.0 >= p.0.min(r.0) && q.1 <= p.1.max(r.1) && q.1 >= p.1.min(r.1)
+    }
+
+    let o1 = orientation(a1, a2, b1);
+    let o2 = orientation(a1, a2, b2);
+    let o3 = orientation(b1, b2, a1);
+    let o4 = orientation(b1, b2, a2);
+
+    if o1 != o2 && o3 != o4 {
+        return true;
+    }
+    // Touching endpoints count; a shared endpoint is how a lane meets the
+    // door it passes through.
+    (o1 == 0 && on_segment(a1, b1, a2))
+        || (o2 == 0 && on_segment(a1, b2, a2))
+        || (o3 == 0 && on_segment(b1, a1, b2))
+        || (o4 == 0 && on_segment(b1, a2, b2))
+}
+
 /// Render the building map as RMF's YAML tuple notation.
 ///
 /// Values are emitted as `[type_code, value]`, where 1 is string, 2 int,
@@ -321,27 +357,45 @@ pub fn to_yaml(map: &BuildingMap) -> String {
         let _ = writeln!(out, "    elevation: {}", level.elevation);
         out.push_str("    vertices:\n");
         for vertex in &level.vertices {
+            // Three elements: x, y, and an options map. The waypoint *name*
+            // lives inside that map, and there is no theta slot at all —
+            // `rmf_fleet_adapter/agv/parse_graph.cpp` reads `vertex[2]["name"]`
+            // directly. A theta in the third slot, or a bare name in the
+            // fourth, is read as a scalar where a mapping was expected, and
+            // yaml-cpp reports the failure against whichever file it happened
+            // to be opening, naming a key that is not in it.
             let _ = writeln!(
                 out,
-                "      - [{}, {}, {}, {}, {{}}]",
+                "      - [{}, {}, {{name: {}}}]",
                 yaml_number(vertex.x),
                 yaml_number(vertex.y),
-                yaml_number(vertex.z),
                 yaml_string(&vertex.name),
             );
         }
         out.push_str("    lanes:\n");
         for lane in &level.lanes {
-            // `bidirectional` is the key RMF reads; `is_bidirectional` is
-            // ignored and defaults the lane to one-way.
-            let mut params = format!(
-                "{{graph_idx: [2, {}], bidirectional: [4, {}], speed_limit: [3, {}]",
-                lane.graph_idx,
-                lane.is_bidirectional,
-                yaml_number(lane.speed_limit)
-            );
+            // The nav-graph parser reads a small, specific set of options and
+            // ignores everything else. `graph_idx` and `bidirectional` are
+            // building_map keys that this parser never looks up, so a lane
+            // marked bidirectional there is still one-way here — which is why
+            // both directions are emitted as separate lanes.
+            //
+            // `speed_limit` is read as a bare double, not a ParamValue pair.
+            let mut params = format!("{{speed_limit: {}", yaml_number(lane.speed_limit));
             if let Some(orientation) = lane.orientation {
-                let _ = write!(params, ", orientation: [3, {}]", yaml_number(orientation));
+                // `orientation` is not a key this parser knows; it wants
+                // `orientation_constraint` with a direction label.
+                let label = if orientation.cos() >= 0.0 {
+                    "forward"
+                } else {
+                    "backward"
+                };
+                let _ = write!(params, ", orientation_constraint: {}", yaml_string(label));
+            }
+            if let Some(door) = &lane.door_name {
+                // Read as a plain string, not a `[type_code, value]` ParamValue
+                // pair: `options["door_name"].as<std::string>()`.
+                let _ = write!(params, ", door_name: {}", yaml_string(door));
             }
             params.push('}');
             let _ = writeln!(
@@ -442,16 +496,20 @@ mod tests {
     }
 
     #[test]
-    fn a_pair_of_opposite_edges_becomes_one_lane() {
-        // The warehouse map emits both directions; RMF should not see a
-        // double lane or the nav graph doubles.
+    fn each_direction_of_an_edge_becomes_its_own_lane() {
+        // The nav-graph parser has no bidirectional lane: `parse_graph.cpp`
+        // calls `graph.add_lane(begin, end)` once per entry and reads no
+        // `bidirectional` key. Collapsing a pair of opposite edges into one
+        // lane would leave the reverse direction with no lane at all, so a
+        // robot that drove somewhere could not come back.
         let map = small_map();
-        let distinct_pairs = convert(&map, &Options::default()).expect("converts").levels[0]
-            .lanes
-            .len();
-        assert_eq!(distinct_pairs, 5, "five unordered pairs in the source");
+        let out = convert(&map, &Options::default()).expect("converts");
+        assert_eq!(
+            out.levels[0].lanes.len(),
+            map.edges.len(),
+            "every directed edge in the source is a lane"
+        );
 
-        // Adding the reverse of an existing edge must not add a lane.
         let mut doubled = map.clone();
         doubled.edges.push(
             serde_json::from_value(serde_json::json!({
@@ -462,10 +520,9 @@ mod tests {
         let out = convert(&doubled, &Options::default()).expect("converts");
         assert_eq!(
             out.levels[0].lanes.len(),
-            distinct_pairs,
-            "a reversed duplicate must not double the lane"
+            doubled.edges.len(),
+            "the reverse direction must gain a lane, not merge into one"
         );
-        assert!(out.levels[0].lanes.iter().all(|l| l.is_bidirectional));
     }
 
     #[test]
@@ -591,19 +648,57 @@ mod tests {
     }
 
     #[test]
-    fn the_bidirectional_key_is_the_one_rmf_reads() {
-        // RMF looks up `bidirectional`; `is_bidirectional` is silently ignored
-        // and defaults the lane to one-way.
+    fn a_vertex_carries_its_name_in_the_options_map() {
+        // RMF's graph parser reads `vertex[2]["name"]`: the third element is
+        // an options map, not a theta and not a bare name. Emitting theta in
+        // that slot makes yaml-cpp look for `name` inside a scalar and fail,
+        // blaming a key in the *fleet config* file — a completely different
+        // file — which is why this is worth pinning by test.
         let map = small_map();
         let out = convert(&map, &Options::default()).expect("converts");
         let yaml = to_yaml(&out);
-        // Exact key, not a substring: `is_bidirectional` would also satisfy a
-        // `contains("bidirectional")` check while RMF still ignored it.
-        assert!(yaml.contains(", bidirectional: [4, true]"), "{yaml}");
+        let parsed: serde_yaml::Value = serde_yaml::from_str(&yaml).expect("emitted YAML parses");
+        let level = &parsed["levels"]["L1"];
+        let vertices = level["vertices"].as_sequence().expect("vertices sequence");
+        for vertex in vertices {
+            let fields = vertex.as_sequence().expect("vertex is a sequence");
+            assert_eq!(fields.len(), 3, "vertex must be [x, y, options]: {yaml}");
+            assert!(
+                fields[2].is_mapping(),
+                "third element must be an options map holding `name`: {yaml}"
+            );
+            assert!(
+                fields[2]["name"].is_string(),
+                "the name must be inside the options map: {yaml}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_door_name_is_a_plain_string_in_the_lane_options() {
+        // `options["door_name"].as<std::string>()`: a `[type_code, value]`
+        // ParamValue pair is read here as a sequence and the door is silently
+        // dropped, so the reservation would never be requested.
+        let map = small_map();
+        let out = convert(&map, &Options::default()).expect("converts");
+        let yaml = to_yaml(&out);
+        let parsed: serde_yaml::Value = serde_yaml::from_str(&yaml).expect("emitted YAML parses");
+        let level = &parsed["levels"]["L1"];
+        let lanes = level["lanes"].as_sequence().expect("lanes sequence");
+        let with_door: Vec<&serde_yaml::Value> = lanes
+            .iter()
+            .filter(|lane| lane[2].get("door_name").is_some())
+            .collect();
         assert!(
-            !yaml.contains("is_bidirectional"),
-            "a key RMF does not read would strand every robot"
+            !with_door.is_empty(),
+            "a lane through DOOR-IN must carry the door name: {yaml}"
         );
+        for lane in with_door {
+            assert!(
+                lane[2]["door_name"].is_string(),
+                "door_name must be a bare string, not a ParamValue pair: {yaml}"
+            );
+        }
     }
 
     #[test]

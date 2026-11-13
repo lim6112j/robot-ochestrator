@@ -43,8 +43,12 @@ class RobotAPI:
     def __init__(self, config_yaml):
         fleet = config_yaml['fleet_manager']
         self.prefix = fleet['prefix']
-        self.user = fleet['user']
-        self.password = fleet['password']
+        # `user`/`password` are the upstream REST template's basic-auth fields.
+        # A VDA 5050 fleet talks MQTT, where authentication is a broker concern
+        # rather than a per-request header, so they are optional here and
+        # default to None.
+        self.user = fleet.get('user')
+        self.password = fleet.get('password')
         self.timeout = 5.0
         self.debug = False
 

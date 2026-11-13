@@ -28,26 +28,83 @@ docker run --rm -it --network host rcs-rmf:jazzy
 `--network host` matters: the fleet adapter will talk to the MQTT broker and
 to the VDA 5050 simulator on the host.
 
-## Traffic arbitration: not yet verified
+## Traffic arbitration: negotiation starts
 
-`traffic_probe.py` is an attempt to verify the other half of the Phase 2
-completion criterion — two robots from different manufacturers negotiating a
-shared aisle. It does not reach a negotiation, and the reason is pinned down:
+`traffic_probe.py` submits two conflicting itineraries on one lane, from two
+participants standing in for robots of different manufacturers, and reports
+what the schedule does with them.
 
-* `rmf_traffic_schedule` starts, and accepts participant registration,
-  itinerary submission, live participant state and progress reporting.
-* It does **not** subscribe to `/map`. `ros2 topic info /map` reports
-  `Subscription count: 0` even after 25s of discovery.
-* Without a nav graph there is nothing to arbitrate, so no
-  `/rmf_traffic/negotiation_*` traffic ever appears.
+Verified: the negotiation starts. The schedule node logs
+`Require negotiation for: 0 1`, and the negotiation topics carry
+`notice: 1`, `participants: [0, 1]`, and a state tree with a node for each
+participant.
 
-The missing piece is whatever turns a `.building.yaml` into a schedule
-nav-graph patch. In RMF that is `rmf_traffic_editor`, but this image carries
-only `rmf_traffic_editor_assets` — the Qt editor binary is absent and cannot
-run headless. Closing this needs either a source build of
-`rmf_traffic_editor` or composing `SchedulePatch` messages directly.
+Not verified: the negotiation's *conclusion*. That needs something to answer
+the schedule's proposals, and the probe only impersonates a participant. The
+answerer is the fleet adapter.
 
-The probe's docstring records this so the same ground is not re-dug.
+Two things that cost most of the debugging time, both silent:
+
+* Waypoint `time` in an `ItinerarySet` is an **absolute nanosecond** timestamp
+  on the steady_clock. Sending `0, 10, 20, 30, 40` reads as one instant in the
+  distant past and the whole itinerary is dropped with no warning. Anchor on
+  `now + t * 1e9`.
+* The map name is the **level** name. Our building map declares
+  `levels: L1:`, so routes must say `L1`; `plant-b/l1` is a name the schedule
+  has never seen and the route is ignored, again silently.
+
+An earlier note here claimed the schedule's failure to subscribe to `/map`
+was the blocker. That is true — it reports `Subscription count: 0` — but it is
+by design: the schedule arbitrates in `(map, x, y, t)` space and does not need
+the nav graph. `rmf_traffic_editor` is not needed either; the official
+`rmf_demos` launch runs `building_map_server` + `rmf_traffic_schedule` +
+`rmf_traffic_blockade` with no editor.
+
+## Running the fleet adapter
+
+```
+pip3 install --break-system-packages nudged
+export PYTHONPATH=/path/to/deploy/rmf/fleet_adapter:$PYTHONPATH
+python3 -m vda5050_fleet_adapter.fleet_adapter \
+  -c .../vda5050_fleet_adapter/config.yaml \
+  -n .../nav_graph.yaml
+```
+
+Two things to know:
+
+* `nudged` is not in the image and `pip3` refuses it under PEP 668, so
+  `--break-system-packages` is required.
+* `PYTHONPATH` must *append* to the ROS path. Setting it alone shadows
+  `rclpy` and the adapter dies on `import rclpy`.
+
+The nav graph and the building map are the same file: `nav_graph.yaml` is a
+copy of the `lif2rmf` output, because the two parsers now agree on one format.
+
+Once it starts, the schedule node logs
+`Mirror handling new sync of 1 queries from schedule node`, which is the point
+at which the nav graph and the fleet adapter are actually talking to each
+other.
+
+Past that point the adapter currently dies — see "Fleet adapter: stops after
+the nav graph is accepted" below.
+
+## Fleet adapter: stops after the nav graph is accepted
+
+Honest status of `deploy/rmf/fleet_adapter`:
+
+* `from_config_files(config, nav_graph)` **succeeds** against our map. The
+  fleet name and `known_robots` come back correct, and the schedule node
+  reports a new query sync — the nav graph really does reach RMF.
+* `Adapter.make()` and `adapter.start()` succeed, and
+  `add_easy_fleet()` logs `Finished configuring Easy Full Control adapter`.
+* It then dies somewhere around `RobotAPI` construction. `nudged` itself is
+  not the cause: `nudged.estimate` on our identity transform works fine in
+  isolation. The crash is a segfault that surfaces as a misleading
+  `KeyError: 'fleet_manager'` from a later line, because the process is
+  already dead by the time Python unwinds.
+
+This is not yet diagnosed. What is established is that the failure is *after*
+the nav graph is accepted, so it is not a map-format problem any more.
 
 ## Verified
 
@@ -57,10 +114,18 @@ The probe's docstring records this so the same ground is not re-dug.
   proposal, rejection, refusal, forfeit, ack, conclusion, states, statuses),
   `/rmf_traffic/itinerary_*` (set, extend, delay, reached, clear) and
   `/rmf_traffic/heartbeat`.
-* `rmf_traffic_editor` and `rmf_building_map_tools` are present for authoring
-  the nav graph.
+* `rmf_building_map_tools` is present for authoring the nav graph.
+* `rmf_traffic_editor` is **not** usable here: only `rmf_traffic_editor_assets`
+  is installed, with no editor binary, and it could not run headless anyway.
+  It is not needed — see the traffic arbitration section.
 
 Note the executable name is `rmf_traffic_schedule`, not `schedule`.
+
+Also confirmed, and worth recording because it contradicts a reasonable
+assumption: the schedule node does **not** subscribe to `/map`
+(`ros2 topic info /map` reports `Subscription count: 0`, and the QoS profile
+is a plain RELIABLE / TRANSIENT_LOCAL). This is by design. It arbitrates in
+`(map, x, y, t)` space and never needs the nav graph.
 
 ## Network prerequisite
 

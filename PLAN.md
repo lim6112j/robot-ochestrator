@@ -18,26 +18,35 @@
 | **Phase 2** RMF 연동 | 🔵 결정 완료 | Jazzy(Docker) · Python 어댑터(2안) · Full Control — 2026-11-13 확정, 착수 준비 |
 | **Phase 3~5** | ⏳ 대기 | 3D 트윈(Bevy) · 실제 제조사 온보딩 · 운영화 |
 
-#### 교통 협상 프로브 — 미완성 (2026-11-13)
+#### 교통 협상 프로브 — 협상 시작까지 증명 (2026-11-13, 갱신)
 
-`deploy/rmf/traffic_probe.py`: RMF 교통 협상을 검증하려는 시도.
-**결과: 협상이 발생하지 않음. 원인을 특정했고 그 전까지는 전부 동작함.**
+`deploy/rmf/traffic_probe.py`: 서로 다른 제조사 로봇 2명이 같은 차선을
+정면으로 지나는 일정을 제출해 RMF 가 실제로 중재하는지 검증.
 
-- 동작함: `rmf_traffic_schedule` 기동, 참여자 2대 등록(participant_id 0,1),
-  일정 제출, 참여자 상태(`/rmf_traffic/participants`)와 진행
-  (`itinerary_reached`/`itinerary_delay`) 보고 — 전부 노드에 도달.
-- **막힌 곳: 스케줄러가 `/map` 을 구독하지 않는다.** `ros2 topic info /map` 이
-  discovery 25초 후에도 `Subscription count: 0`. 내비 그래프 없이는 협상할
-  대상이 없으므로 협상이 시작되지 않는다.
-- **빠진 것**: `.building.yaml` 을 스케줄 내비그래프 패치로 바꾸는 컴포넌트.
-  RMF 에서 그 역할은 `rmf_traffic_editor` 인데, 이 이미지는
-  `rmf_traffic_editor_assets` 만 있고 **Qt 편집기 바이너리가 없다**.
-  헤드리스 컨테이너에서 GUI 를 띄울 수 없어 패치를 공급할 수 없다.
-- **남은 작업**(선택): `rmf_traffic_editor` 소스 빌드, 또는 RMF API로
-  `SchedulePatch` 메시지를 직접 구성. 전자는 이미지가 더 무거워지고,
-  후자는 RMF 내부 스키마를 더 파야 한다.
-- 프로브 문서에 이 한계를 명시했다. "검증 실패"를 "미완성 + 원인 특정"으로
-  기록해 두지 않으면, 이후에 같은 땅을 다시 파게 된다.
+**결과: 협상이 시작되는 것까지 증명됨.** 스케줄러 로그에
+`Require negotiation for: 0 1`, 협상 토픽에
+`notice: 1`, `participants=[0, 1]`, 상태 트리에 양쪽 참여자 노드.
+
+- 이전 턴에 "협상 미발생"으로 기록했는데, **원인 판정이 틀렸다**. 스케줄러가
+  `/map` 을 구독하지 않는다는 사실은 맞지만(`ros2 topic info /map` 이
+  25초 후에도 구독자 0), 그건 **설계다**. 스케줄러는 내비그래프 없이
+  `(map, x, y, t)` 공간만으로 중재한다. 내비그래프가 빠져서 협상이 안 난 게
+  아니다.
+- **진짜 원인: `ItinerarySet` waypoint 의 `time` 이 절대 나노초 시각이다.**
+  steady_clock 기준의 나노초 정밀도 절대값인데, 처음에 `0, 10, 20, 30, 40`
+  을 넣었다. 이는 "먼 과거의 같은 순간" 으로 해석되어 일정이 통째로
+  조용히 버려진다. `now + t*1e9` 로 고정하자마자 협상이 나왔다.
+  일정이 거부돼도 아무 경고가 없다는 게 이 버그를 찾기 어렵게 만든다.
+- 맵 이름은 **레벨 이름**이어야 한다. 우리 building map 은
+  `levels: L1:` 이므로 `L1`. `plant-b/l1` 은 schedule 이 한 번도 본 적 없는
+  이름이라 일정이 무시된다(역시 무음).
+- **미완성**: 협상의 *완결*(conclusion)까지는 보지 못했다. 제안에 응답하는
+  주체가 필요한데, 프로브는 참여자를 흉내내는 역할이라 응답을 보내도
+  진행이 안 된다. 응답 주체는 `fleet_adapter` 다.
+- `rmf_traffic_editor` 소스 빌드는 **불필요**하다. 공식 데모
+  (`rmf_demos/launch/common.launch.xml`)도 editor 없이
+  `building_map_server` + `rmf_traffic_schedule` + `rmf_traffic_blockade`
+  조합으로 돈다. editor 는 오프라인 GUI authoring 도구일 뿐 런타임에 없다.
 
 #### door adapter 추가 (2026-11-13)
 
@@ -101,14 +110,45 @@
 `tools/lif2rmf`: VDA 5050 맵(노드/엣지 JSON) → RMF building map(YAML).
 수동 변환은 맵이 바뀔 때 drift 하므로 코드로 하고 테스트로 고정.
 
-- 노드 → 정점, 엣지 → 차선(무향쌍 1개, `bidirectional`), `DOOR-*` 노드 → 문.
-- RMF 파서로 실제 검증: 내비 그래프 **정점 35 · 차선 106**(53쌍 × 왕방향),
+- 노드 → 정점, 엣지 → 차선(방향별 1개), `DOOR-*` 노드 → 문.
+- RMF 파서로 실제 검증: 내비 그래프 **정점 39 · 차선 106 · 문 2**,
   문을 지나는 차선 8개에 `door_name` 부여 → 공유 자원 예약이 임무에 반영됨.
-- **함정 1**: 파라미터 키는 `bidirectional`. `is_bidirectional` 는 RMF 가 무시해서
-  차선이 일방통행이 된다(창고 끝에 로봇이 갇힘). 회귀 테스트로 고정.
-- **함정 2**: 문 세그먼트는 통로와 **수직**이어야 한다. RMF `segments_intersect`
+- **함정 1**: 문 세그먼트는 통로와 **수직**이어야 한다. RMF `segments_intersect`
   는 공선을 교차로 보지 않으므로 통로를 따라 놓은 문은 조용히 무시된다.
 - 문 전용 정점은 어떤 차선도 참조하지 않으므로 내비 그래프에 섞이지 않는다.
+
+#### 맵 변환기 형식 수정 — RMF 파서가 둘이라 (2026-11-13)
+
+fleet adapter 를 실제로 띄우다가 드러난 버그. **RMF 에는 같은 building map
+파일을 읽는 파서가 두 개이고, 기대하는 형식이 다르다.**
+
+| | Python `building_map` | C++ `parse_graph.cpp` (nav graph) |
+|---|---|---|
+| vertex | `[x, y, theta, name, ...]` 0..3 만 읽음 | `[x, y, {name: ...}]` 3요소 |
+| `speed_limit` | ParamValue `[3, 0.8]` | **bare double** |
+| `door_name` | ParamValue `[1, "X"]` | **bare string** |
+| `bidirectional` / `graph_idx` | 읽음 | **무시** |
+
+기존 출력은 Python 파서용 형식이었다. Python 파서로는 검증이 통과했기 때문에
+버그가 숨어 있었는데, C++ 파서는 `vertex[2]["name"]` 을 읽다가 theta 스칼라를
+만나 죽었다. 에러 메시지는 **config 파일의 줄 번호와 거기 없는 키 이름**을
+알려줘서 완전히 엉뚱한 곳을 보게 만든다.
+
+수정 내용:
+
+- vertex 를 3요소 `[x, y, {name: ...}]` 로. theta 자리는 없다.
+- `speed_limit` 은 bare double, `door_name` 은 bare string.
+- `graph_idx`/`bidirectional` 제거 — nav graph 파서가 안 읽는다.
+- **양방향 차선이 없다.** `parse_graph.cpp` 는 항목마다
+  `graph.add_lane(begin, end)` 를 한 번씩만 호출하고 bidirectional 을 읽지
+  않는다. 무향쌍을 1개로 합치면 역방향에 차선이 없어 로봇이 되돌아올 수
+  없으므로, 방향별로 별도 차선을 낸다(106개).
+- 기존 테스트 2개가 거짓 전제(`is_bidirectional` 필드, 쌍 병합)에 서 있어서
+  실제 동작에 맞게 교체했다. YAML round-trip 만으로는 이 형식 차이를 잡을 수
+  없어 요소 구조를 직접 단언하는 테스트를 추가했다.
+
+**교훈**: 한 파일을 두 파서가 읽으면, 한쪽으로 검증한 것은 다른쪽을 검증한 게
+아니다. fleet adapter 까지 띄워 봐서야 드러났다.
 
 #### 즉시 제어 추가 (2026-11-13)
 
