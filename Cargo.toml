@@ -1,0 +1,34 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/vda5050-types",
+    "crates/vda5050-sim",
+    "crates/gateway",
+    "tools/conformance",
+    "tools/broker",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# 프로토콜 게이트웨이 특성상 허용하는 린트
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+needless_pass_by_value = "allow"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

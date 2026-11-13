@@ -1,0 +1,21 @@
+[package]
+name = "broker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Local MQTT 5 broker for development and tests (rumqttd wrapper)"
+
+[[bin]]
+name = "broker"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+rumqttd = "0.20"
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = { version = "1", features = ["derive"] }

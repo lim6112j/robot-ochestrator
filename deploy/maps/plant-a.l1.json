@@ -1,0 +1,23 @@
+{
+  "mapId": "plant-a/l1",
+  "nodes": {
+    "ST-07":    { "x": 4.0,  "y": 2.0,  "theta": 0.0 },
+    "CONV-A":   { "x": 16.0, "y": 2.0,  "theta": 0.0 },
+    "C1-WEST":  { "x": 4.0,  "y": 8.0,  "theta": 0.0 },
+    "C1-EAST":  { "x": 16.0, "y": 8.0,  "theta": 0.0 },
+    "DOCK-1":   { "x": 10.0, "y": 12.0, "theta": 0.0 },
+    "PATROL-1": { "x": 10.0, "y": 5.0,  "theta": 1.57 },
+    "PATROL-2": { "x": 12.0, "y": 10.0, "theta": 3.14 }
+  },
+  "edges": [
+    { "from": "ST-07",   "to": "CONV-A",  "length": 12.0, "speed": 1.2 },
+    { "from": "CONV-A",  "to": "ST-07",   "length": 12.0, "speed": 1.2 },
+    { "from": "ST-07",   "to": "C1-WEST", "length": 6.0,  "speed": 0.8 },
+    { "from": "C1-WEST", "to": "C1-EAST", "length": 12.0, "speed": 0.5 },
+    { "from": "C1-EAST", "to": "CONV-A",  "length": 6.0,  "speed": 0.8 },
+    { "from": "CONV-A",  "to": "DOCK-1",  "length": 12.0, "speed": 1.0 },
+    { "from": "DOCK-1",  "to": "PATROL-1","length": 8.0,  "speed": 1.0 },
+    { "from": "PATROL-1","to": "PATROL-2","length": 6.0,  "speed": 1.0 },
+    { "from": "PATROL-2","to": "DOCK-1",  "length": 8.0,  "speed": 1.0 }
+  ]
+}

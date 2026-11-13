@@ -1,0 +1,818 @@
+{
+  "mapId": "plant-b/l1",
+  "nodes": {
+    "RK-AW": {
+      "x": 6.0,
+      "y": 4.0,
+      "theta": 0.0
+    },
+    "RK-AM": {
+      "x": 18.0,
+      "y": 4.0,
+      "theta": 0.0
+    },
+    "RK-AE": {
+      "x": 30.0,
+      "y": 4.0,
+      "theta": 0.0
+    },
+    "RK-BW": {
+      "x": 6.0,
+      "y": 8.0,
+      "theta": 0.0
+    },
+    "RK-BM": {
+      "x": 18.0,
+      "y": 8.0,
+      "theta": 0.0
+    },
+    "RK-BE": {
+      "x": 30.0,
+      "y": 8.0,
+      "theta": 0.0
+    },
+    "RK-CW": {
+      "x": 6.0,
+      "y": 12.0,
+      "theta": 0.0
+    },
+    "RK-CM": {
+      "x": 18.0,
+      "y": 12.0,
+      "theta": 0.0
+    },
+    "RK-CE": {
+      "x": 30.0,
+      "y": 12.0,
+      "theta": 0.0
+    },
+    "RK-DW": {
+      "x": 6.0,
+      "y": 16.0,
+      "theta": 0.0
+    },
+    "RK-DM": {
+      "x": 18.0,
+      "y": 16.0,
+      "theta": 0.0
+    },
+    "RK-DE": {
+      "x": 30.0,
+      "y": 16.0,
+      "theta": 0.0
+    },
+    "RK-EW": {
+      "x": 6.0,
+      "y": 20.0,
+      "theta": 0.0
+    },
+    "RK-EM": {
+      "x": 18.0,
+      "y": 20.0,
+      "theta": 0.0
+    },
+    "RK-EE": {
+      "x": 30.0,
+      "y": 20.0,
+      "theta": 0.0
+    },
+    "AS-1W": {
+      "x": 0.0,
+      "y": 6.0,
+      "theta": 0.0
+    },
+    "AS-1M": {
+      "x": 18.0,
+      "y": 6.0,
+      "theta": 0.0
+    },
+    "AS-1E": {
+      "x": 36.0,
+      "y": 6.0,
+      "theta": 0.0
+    },
+    "AS-2W": {
+      "x": 0.0,
+      "y": 10.0,
+      "theta": 0.0
+    },
+    "AS-2M": {
+      "x": 18.0,
+      "y": 10.0,
+      "theta": 0.0
+    },
+    "AS-2E": {
+      "x": 36.0,
+      "y": 10.0,
+      "theta": 0.0
+    },
+    "AS-3W": {
+      "x": 0.0,
+      "y": 14.0,
+      "theta": 0.0
+    },
+    "AS-3M": {
+      "x": 18.0,
+      "y": 14.0,
+      "theta": 0.0
+    },
+    "AS-3E": {
+      "x": 36.0,
+      "y": 14.0,
+      "theta": 0.0
+    },
+    "AS-4W": {
+      "x": 0.0,
+      "y": 18.0,
+      "theta": 0.0
+    },
+    "AS-4M": {
+      "x": 18.0,
+      "y": 18.0,
+      "theta": 0.0
+    },
+    "AS-4E": {
+      "x": 36.0,
+      "y": 18.0,
+      "theta": 0.0
+    },
+    "CONV-IN": {
+      "x": 0.0,
+      "y": 0.0,
+      "theta": 0.0
+    },
+    "CONV-OUT": {
+      "x": 36.0,
+      "y": 24.0,
+      "theta": 0.0
+    },
+    "CHG-01": {
+      "x": 0.0,
+      "y": 24.0,
+      "theta": 0.0
+    },
+    "CHG-02": {
+      "x": 36.0,
+      "y": 0.0,
+      "theta": 0.0
+    },
+    "STG-01": {
+      "x": 18.0,
+      "y": 0.0,
+      "theta": 0.0
+    },
+    "STG-02": {
+      "x": 18.0,
+      "y": 24.0,
+      "theta": 0.0
+    },
+    "DOOR-IN": {
+      "x": 12.0,
+      "y": 0.0,
+      "theta": 0.0
+    },
+    "DOOR-OUT": {
+      "x": 24.0,
+      "y": 24.0,
+      "theta": 0.0
+    }
+  },
+  "edges": [
+    {
+      "from": "RK-AW",
+      "to": "RK-AM",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-AM",
+      "to": "RK-AW",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-AM",
+      "to": "RK-AE",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-AE",
+      "to": "RK-AM",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-BW",
+      "to": "RK-BM",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-BM",
+      "to": "RK-BW",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-BM",
+      "to": "RK-BE",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-BE",
+      "to": "RK-BM",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-CW",
+      "to": "RK-CM",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-CM",
+      "to": "RK-CW",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-CM",
+      "to": "RK-CE",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-CE",
+      "to": "RK-CM",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-DW",
+      "to": "RK-DM",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-DM",
+      "to": "RK-DW",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-DM",
+      "to": "RK-DE",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-DE",
+      "to": "RK-DM",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-EW",
+      "to": "RK-EM",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-EM",
+      "to": "RK-EW",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-EM",
+      "to": "RK-EE",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "RK-EE",
+      "to": "RK-EM",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "AS-1W",
+      "to": "AS-1M",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-1M",
+      "to": "AS-1W",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-1M",
+      "to": "AS-1E",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-1E",
+      "to": "AS-1M",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-2W",
+      "to": "AS-2M",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-2M",
+      "to": "AS-2W",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-2M",
+      "to": "AS-2E",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-2E",
+      "to": "AS-2M",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-3W",
+      "to": "AS-3M",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-3M",
+      "to": "AS-3W",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-3M",
+      "to": "AS-3E",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-3E",
+      "to": "AS-3M",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-4W",
+      "to": "AS-4M",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-4M",
+      "to": "AS-4W",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-4M",
+      "to": "AS-4E",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "AS-4E",
+      "to": "AS-4M",
+      "length": 18.0,
+      "speed": 1.2
+    },
+    {
+      "from": "RK-AW",
+      "to": "AS-1W",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-1W",
+      "to": "RK-AW",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-AE",
+      "to": "AS-1E",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-1E",
+      "to": "RK-AE",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-BW",
+      "to": "AS-1W",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-1W",
+      "to": "RK-BW",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-BE",
+      "to": "AS-1E",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-1E",
+      "to": "RK-BE",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-BW",
+      "to": "AS-2W",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-2W",
+      "to": "RK-BW",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-BE",
+      "to": "AS-2E",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-2E",
+      "to": "RK-BE",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-CW",
+      "to": "AS-2W",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-2W",
+      "to": "RK-CW",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-CE",
+      "to": "AS-2E",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-2E",
+      "to": "RK-CE",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-CW",
+      "to": "AS-3W",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-3W",
+      "to": "RK-CW",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-CE",
+      "to": "AS-3E",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-3E",
+      "to": "RK-CE",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-DW",
+      "to": "AS-3W",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-3W",
+      "to": "RK-DW",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-DE",
+      "to": "AS-3E",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-3E",
+      "to": "RK-DE",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-DW",
+      "to": "AS-4W",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-4W",
+      "to": "RK-DW",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-DE",
+      "to": "AS-4E",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-4E",
+      "to": "RK-DE",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-EW",
+      "to": "AS-4W",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-4W",
+      "to": "RK-EW",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "RK-EE",
+      "to": "AS-4E",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-4E",
+      "to": "RK-EE",
+      "length": 6.32,
+      "speed": 0.6
+    },
+    {
+      "from": "AS-1W",
+      "to": "AS-2W",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-2W",
+      "to": "AS-1W",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-2W",
+      "to": "AS-3W",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-3W",
+      "to": "AS-2W",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-3W",
+      "to": "AS-4W",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-4W",
+      "to": "AS-3W",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-1M",
+      "to": "AS-2M",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-2M",
+      "to": "AS-1M",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-2M",
+      "to": "AS-3M",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-3M",
+      "to": "AS-2M",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-3M",
+      "to": "AS-4M",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-4M",
+      "to": "AS-3M",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-1E",
+      "to": "AS-2E",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-2E",
+      "to": "AS-1E",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-2E",
+      "to": "AS-3E",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-3E",
+      "to": "AS-2E",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-3E",
+      "to": "AS-4E",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-4E",
+      "to": "AS-3E",
+      "length": 4.0,
+      "speed": 1.0
+    },
+    {
+      "from": "CONV-IN",
+      "to": "AS-1W",
+      "length": 6.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-1W",
+      "to": "CONV-IN",
+      "length": 6.0,
+      "speed": 1.0
+    },
+    {
+      "from": "CONV-IN",
+      "to": "DOOR-IN",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "DOOR-IN",
+      "to": "CONV-IN",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "CONV-OUT",
+      "to": "AS-4E",
+      "length": 6.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-4E",
+      "to": "CONV-OUT",
+      "length": 6.0,
+      "speed": 1.0
+    },
+    {
+      "from": "CONV-OUT",
+      "to": "DOOR-OUT",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "DOOR-OUT",
+      "to": "CONV-OUT",
+      "length": 12.0,
+      "speed": 0.8
+    },
+    {
+      "from": "CHG-01",
+      "to": "AS-4W",
+      "length": 6.0,
+      "speed": 0.8
+    },
+    {
+      "from": "AS-4W",
+      "to": "CHG-01",
+      "length": 6.0,
+      "speed": 0.8
+    },
+    {
+      "from": "CHG-02",
+      "to": "AS-1E",
+      "length": 6.0,
+      "speed": 0.8
+    },
+    {
+      "from": "AS-1E",
+      "to": "CHG-02",
+      "length": 6.0,
+      "speed": 0.8
+    },
+    {
+      "from": "STG-01",
+      "to": "AS-3M",
+      "length": 14.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-3M",
+      "to": "STG-01",
+      "length": 14.0,
+      "speed": 1.0
+    },
+    {
+      "from": "STG-02",
+      "to": "AS-2M",
+      "length": 14.0,
+      "speed": 1.0
+    },
+    {
+      "from": "AS-2M",
+      "to": "STG-02",
+      "length": 14.0,
+      "speed": 1.0
+    },
+    {
+      "from": "DOOR-IN",
+      "to": "AS-2M",
+      "length": 11.66,
+      "speed": 0.8
+    },
+    {
+      "from": "AS-2M",
+      "to": "DOOR-IN",
+      "length": 11.66,
+      "speed": 0.8
+    },
+    {
+      "from": "DOOR-OUT",
+      "to": "AS-3M",
+      "length": 11.66,
+      "speed": 0.8
+    },
+    {
+      "from": "AS-3M",
+      "to": "DOOR-OUT",
+      "length": 11.66,
+      "speed": 0.8
+    }
+  ]
+}

@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>로봇 관제 — 디지털 트윈</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><circle cx=%228%22 cy=%228%22 r=%226%22 fill=%22%2335d07f%22/></svg>">
+<style>
+  :root {
+    --bg: #0b1020; --panel: #131a2e; --line: #24304f; --text: #e6ebf5;
+    --muted: #8b9bb8; --ok: #35d07f; --warn: #f5c451; --err: #ff5d5d; --accent: #4da3ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  header .stats { display: flex; gap: 14px; margin-left: auto; font-size: 12px; color: var(--muted); }
+  header .stats b { color: var(--text); }
+  main { display: grid; grid-template-columns: 260px 1fr 320px; height: calc(100vh - 45px); }
+  section { overflow: auto; border-right: 1px solid var(--line); }
+  section:last-child { border-right: none; }
+  .panel-title { padding: 8px 12px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+  .robot { padding: 8px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .robot:hover, .robot.sel { background: #1a2440; }
+  .robot .row { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.online { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  .dot.offline { background: var(--err); }
+  .robot .id { font-weight: 600; font-size: 13px; }
+  .robot .meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .badge { font-size: 10px; padding: 1px 5px; border-radius: 4px; background: #22304f; color: var(--muted); }
+  .badge.sim { background: #2b3d63; color: #b9d3ff; }
+  .badge.v2 { background: #4a3a1f; color: #f5c451; }
+  .badge.err { background: #4a1f1f; color: #ff9d9d; }
+  #stage { position: relative; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #legend { position: absolute; left: 12px; bottom: 12px; background: rgba(11,16,32,.8); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 11px; color: var(--muted); }
+  .kv { display: grid; grid-template-columns: 92px 1fr; gap: 2px 8px; padding: 10px 12px; font-size: 12px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; word-break: break-all; }
+  .events { padding: 6px 12px; font-size: 11px; }
+  .events div { padding: 3px 0; border-bottom: 1px dashed #1d2740; color: var(--muted); }
+  .events .RobotOnline { color: var(--ok); }
+  .events .RobotOffline { color: var(--err); }
+  .events .SchemaViolation { color: var(--warn); }
+  .bar { height: 4px; background: #22304f; border-radius: 2px; overflow: hidden; margin-top: 4px; }
+  .bar > i { display: block; height: 100%; background: var(--ok); }
+  .bar.low > i { background: var(--warn); }
+  .bar.crit > i { background: var(--err); }
+  #empty { color: var(--muted); padding: 16px; font-size: 12px; }
+  .tools { display: flex; align-items: center; gap: 8px; }
+  .tools button {
+    background: #1b2540; color: #cfe0ff; border: 1px solid #2b3a63;
+    border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer;
+  }
+  .tools button:hover { background: #24325a; }
+  .zoom-badge { color: var(--muted); font-size: 11px; min-width: 56px; }
+  .hint { color: var(--muted); font-size: 10px; }
+
+  /* ── 임무 지시 모달 ── */
+  /* 오른쪽 서랍으로 연다: 가운데 맵을 가리지 않아야 모달을 연 채로 지도의
+     노드를 클릭해 경유지를 추가할 수 있다. 배경은 클릭을 통과시킨다. */
+  .modal-back { position: fixed; inset: 0; background: rgba(5,8,16,.55); display: none; align-items: stretch; justify-content: flex-end; z-index: 20; pointer-events: none; }
+  .modal-back.open { display: flex; }
+  .modal { pointer-events: auto; width: 470px; max-width: 94vw; height: 100%; display: flex; flex-direction: column; background: var(--panel); border: none; border-left: 1px solid var(--line); border-radius: 0; }
+  .modal > header { border-bottom: 1px solid var(--line); }
+  .modal > header .tools { margin-left: auto; }
+  .modal .body { padding: 14px 16px; overflow: auto; }
+  .modal .foot { padding: 12px 16px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .modal .foot .spacer { margin-left: auto; }
+  .field { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 12px; }
+  .field > label { color: var(--muted); min-width: 76px; }
+  .field input[type=text], .field input[type=number], .field select {
+    background: #0f1526; color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 8px; font-size: 12px; font-family: inherit;
+  }
+  .field input[type=text] { flex: 1; }
+  .field input[type=number] { width: 72px; }
+  .field select { flex: 1; }
+  .wps { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .wp { display: flex; align-items: center; gap: 5px; padding: 7px 8px; border-bottom: 1px solid #1d2740; }
+  .wp:last-child { border-bottom: none; }
+  .wp .num { width: 20px; height: 20px; flex: none; border-radius: 50%; background: #f5a623; color: #1a1200; font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+  .wp select, .wp input { background: #0f1526; color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 4px 4px; font-size: 11px; font-family: inherit; min-width: 0; }
+  .wp .node { flex: 1.1; }
+  .wp .act { flex: 1; }
+  .wp .dur { width: 52px; flex: none; }
+  .wp .dur:disabled { opacity: .35; }
+  .wp .mv { background: #1b2540; color: #cfe0ff; border: 1px solid #2b3a63; border-radius: 5px; width: 21px; height: 21px; flex: none; cursor: pointer; font-size: 10px; }
+  .wp .mv:disabled { opacity: .3; cursor: default; }
+  .wp .del { background: #3a1f24; color: #ffb3b3; border: 1px solid #5a2a30; border-radius: 5px; width: 21px; height: 21px; flex: none; cursor: pointer; font-size: 10px; }
+  .wps .empty { padding: 18px; text-align: center; color: var(--muted); font-size: 12px; }
+  .pick-hint { margin: 10px 0 0; font-size: 11px; color: var(--muted); }
+  .pick-hint.on { color: var(--warn); }
+  .btn-primary { background: #1f5fd0; color: #fff; border: 1px solid #2f7bff; border-radius: 6px; padding: 6px 16px; font-size: 12px; cursor: pointer; font-weight: 600; }
+  .btn-primary:hover { background: #2a72e8; }
+  .btn-primary:disabled { opacity: .45; cursor: default; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+  .reject { color: var(--err); font-size: 11px; max-height: 90px; overflow: auto; }
+  .toast { position: fixed; right: 16px; bottom: 16px; z-index: 30; display: flex; flex-direction: column; gap: 6px; }
+  .toast div { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px; padding: 8px 12px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+  .toast .ok { border-left-color: var(--ok); }
+  .toast .err { border-left-color: var(--err); }
+</style>
+</head>
+<body>
+<header>
+  <h1>로봇 관제 · 디지털 트윈</h1>
+  <span class="badge" id="map-badge">map: —</span>
+  <div class="tools">
+    <button id="btn-new-mission" title="로봇에 새 임무를 지시합니다">+ 임무 지시</button>
+    <button id="btn-reset-view" title="맵 전체 보기">전체 보기</button>
+    <span class="zoom-badge" id="zoom-badge">줌 1.0x</span>
+    <span class="hint">휠 확대 · 드래그 이동 · 더블클릭 확대</span>
+  </div>
+  <div class="stats">
+    <span>연결 <b id="stat-online">0</b>/<b id="stat-total">0</b></span>
+    <span>임무 <b id="stat-orders">0</b></span>
+    <span>오류 <b id="stat-errors">0</b></span>
+    <span>DLQ <b id="stat-dlq">0</b></span>
+  </div>
+</header>
+<main>
+  <section>
+    <div class="panel-title">플릿 / 로봇</div>
+    <div id="list"></div>
+  </section>
+  <section id="stage">
+    <canvas id="canvas"></canvas>
+    <div id="legend">범례: ● 온라인 로봇 · 선: 계획 경로 · 사각: 노드</div>
+  </section>
+  <section>
+    <div class="panel-title">선택 로봇</div>
+    <div id="detail"><div id="empty">로봇을 선택하세요.</div></div>
+    <div class="panel-title">이벤트</div>
+    <div class="events" id="events"></div>
+  </section>
+</main>
+
+<!-- ── 임무 지시 ── -->
+<div class="modal-back" id="mission-modal">
+  <div class="modal">
+    <header>
+      <h1>임무 지시</h1>
+      <span class="badge" id="mission-map">map: —</span>
+      <div class="tools"><button id="btn-close-mission">닫기</button></div>
+    </header>
+    <div class="body">
+      <div class="field">
+        <label for="ms-robot">로봇</label>
+        <select id="ms-robot"></select>
+      </div>
+      <div class="field">
+        <label for="ms-order-id">임무 ID</label>
+        <input type="text" id="ms-order-id" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label for="ms-desc">설명</label>
+        <input type="text" id="ms-desc" placeholder="선택 · 관제 이력에만 표시됩니다" />
+      </div>
+      <div class="panel-title" style="position:static;border-top:0">경유지 (지나는 순서)</div>
+      <div class="wps" id="ms-wps"></div>
+      <p class="pick-hint" id="ms-pick-hint">모달이 열려 있는 동안 지도의 <b>노드를 클릭</b>하면 경유지로 추가됩니다.</p>
+    </div>
+    <div class="foot">
+      <button class="btn-ghost" id="btn-clear-wps">비우기</button>
+      <span class="reject" id="ms-reject"></span>
+      <span class="spacer"></span>
+      <button class="btn-ghost" id="btn-cancel-mission">취소</button>
+      <button class="btn-primary" id="btn-send-mission">임무 전송</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const state = { robots: new Map(), map: null, selected: null, events: [] };
+// 뷰: 확대/축소·이동. zoom=1 이면 맵 전체가 캔버스에 맞춰진다.
+const view = { zoom: 1, panX: 0, panY: 0, drag: null, base: null };
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  canvas.width = r.width * devicePixelRatio;
+  canvas.height = r.height * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+addEventListener('resize', resize);
+
+async function boot() {
+  const [robots, map] = await Promise.all([
+    fetch('/api/robots').then(r => r.json()),
+    fetch('/api/map').then(r => r.json()),
+  ]);
+  state.map = map;
+  document.getElementById('map-badge').textContent = 'map: ' + (map.mapId || 'unknown');
+  document.getElementById('zoom-badge').textContent = '줌 1.0x';
+  for (const r of robots.robots) state.robots.set(r.robotId, r);
+  render();
+  connectWs();
+  setInterval(render, 250);
+}
+
+function connectWs() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'snapshot') {
+      for (const r of msg.robots) state.robots.set(r.robotId, r);
+      if (Array.isArray(msg.events)) {
+        state.events = msg.events.slice().reverse();
+        renderEvents();
+      }
+      render();
+      return;
+    }
+    // 실시간 로봇 상태 갱신 (위치·배터리·액션)
+    if (msg.type === 'robot' && msg.robot) {
+      state.robots.set(msg.robot.robotId, msg.robot);
+      render();
+      return;
+    }
+    state.events.unshift(msg);
+    state.events = state.events.slice(0, 60);
+    renderEvents();
+  };
+  ws.onclose = () => setTimeout(connectWs, 1000);
+}
+
+function fleetLabel(r) {
+  const f = r.fleet;
+  if (typeof f === 'string') return f;
+  if (f && typeof f === 'object') {
+    const k = Object.keys(f)[0];
+    const v = f[k];
+    return typeof v === 'string' ? v : k;
+  }
+  return 'unknown';
+}
+
+function robotClass(r) {
+  return r.connection === 'ONLINE' ? 'online' : 'offline';
+}
+
+function renderList() {
+  const list = document.getElementById('list');
+  const robots = [...state.robots.values()].sort((a, b) => a.robotId.localeCompare(b.robotId));
+  document.getElementById('stat-total').textContent = robots.length;
+  document.getElementById('stat-online').textContent = robots.filter(r => r.connection === 'ONLINE').length;
+  document.getElementById('stat-orders').textContent = robots.filter(r => r.orderId).length;
+  document.getElementById('stat-errors').textContent = robots.reduce((n, r) => n + r.errors.length, 0);
+
+  list.innerHTML = robots.map(r => `
+    <div class="robot ${state.selected === r.robotId ? 'sel' : ''}" data-id="${r.robotId}">
+      <div class="row">
+        <span class="dot ${robotClass(r)}"></span>
+        <span class="id">${r.robotId}</span>
+        ${r.source === 'simulator' ? '<span class="badge sim">SIM</span>' : ''}
+        ${r.majorVersion === 2 ? '<span class="badge v2">v2</span>' : ''}
+        ${r.errors.length ? '<span class="badge err">ERR</span>' : ''}
+      </div>
+      <div class="meta">${fleetLabel(r)} · ${r.operatingMode}${r.paused ? ' · 일시정지' : ''}${r.driving ? ' · 주행' : ''}</div>
+      <div class="bar ${r.power && r.power.stateOfCharge < 20 ? 'crit' : r.power && r.power.stateOfCharge < 40 ? 'low' : ''}">
+        <i style="width:${r.power ? r.power.stateOfCharge : 0}%"></i>
+      </div>
+      <div class="meta">${r.power ? r.power.stateOfCharge.toFixed(0) + '%' : '—'}${r.power && r.power.charging ? ' · 충전중' : ''} · ${r.connection}</div>
+    </div>`).join('') || '<div id="empty">연결된 로봇이 없습니다. 시뮬레이터를 기동하세요.</div>';
+
+  list.querySelectorAll('.robot').forEach(el => {
+    el.onclick = () => { state.selected = el.dataset.id; render(); };
+  });
+}
+
+function renderDetail() {
+  const el = document.getElementById('detail');
+  const r = state.robots.get(state.selected);
+  if (!r) { el.innerHTML = '<div id="empty">로봇을 선택하세요.</div>'; return; }
+  const caps = r.capabilities || {};
+  el.innerHTML = `
+    <dl class="kv">
+      <dt>ID</dt><dd>${r.robotId}</dd>
+      <dt>플릿</dt><dd>${fleetLabel(r)}</dd>
+      <dt>인터페이스</dt><dd>${r.interfaceName} v${r.specVersion} ${r.source === 'simulator' ? '(시뮬)' : ''}</dd>
+      <dt>맵</dt><dd>${r.mapId || '—'}</dd>
+      <dt>위치</dt><dd>${r.position ? `${r.position.x.toFixed(2)}, ${r.position.y.toFixed(2)}, ${r.position.theta.toFixed(2)} rad` : '—'}</dd>
+      <dt>배터리</dt><dd>${r.power ? r.power.stateOfCharge.toFixed(0) + '%' + (r.power.charging ? ' (충전중)' : '') : '—'}</dd>
+      <dt>모드</dt><dd>${r.operatingMode}${r.paused ? ' (일시정지)' : ''}</dd>
+      <dt>임무</dt><dd>${r.orderId || '—'}</dd>
+      <dt>액션</dt><dd>${(r.actionStates || []).map(a => `${a.actionType || a.actionId}:${a.actionStatus}`).join(', ') || '—'}</dd>
+      <dt>즉시액션</dt><dd>${(r.instantActionStates || []).map(a => `${a.actionType}:${a.actionStatus}`).join(', ') || '—'}</dd>
+      <dt>오류</dt><dd>${(r.errors || []).map(e => `${e.errorLevel} ${e.errorType}`).join(', ') || '—'}</dd>
+      <dt>안전</dt><dd>${r.safety ? `eStop=${r.safety.activeEmergencyStop}, fieldViolation=${r.safety.fieldViolation}` : '—'}</dd>
+      <dt>지원 액션</dt><dd>${(caps.actions || []).join(', ') || '—'}</dd>
+      <dt>존 지원</dt><dd>${caps.zones ? '예' : '아니오'}</dd>
+    </dl>`;
+}
+
+function renderEvents() {
+  const el = document.getElementById('events');
+  el.innerHTML = state.events.map(e => {
+    const kind = Object.keys(e).find(k => k !== 'type') || '';
+    const v = e[kind];
+    const text = typeof v === 'object' ? JSON.stringify(v) : v;
+    return `<div class="${kind}">${kind} · ${text}</div>`;
+  }).join('') || '<div>이벤트 없음</div>';
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 임무 지시: 경유지와 액션을 모아 POST /api/orders 로 보낸다.
+// headerId·sequenceId·노드 좌표는 게이트웨이가 채우므로 여기서는 경로만 정한다.
+// ────────────────────────────────────────────────────────────────────────────
+const mission = { open: false, robotId: null, waypoints: [] };
+
+// 액션별로 지속시간이 의미 있는지. pick/drop/cleanZone/patrol 은 초 단위로 동작한다.
+const TIMED_ACTIONS = new Set(['pick', 'drop', 'cleanZone', 'patrol', 'wait']);
+const ACTION_FALLBACK = ['pick', 'drop', 'initPosition', 'charge', 'patrol', 'cleanZone'];
+
+function missionActions(robotId) {
+  const caps = state.robots.get(robotId)?.capabilities || {};
+  const supported = (caps.actions || []).filter(a => a && a !== 'none');
+  return supported.length ? supported : ACTION_FALLBACK;
+}
+
+function nextOrderId() {
+  // 임무 ID 는 관제에서 발행 시각 기준. 같은 ID 를 다시 보내면 갱신으로 처리된다.
+  const n = Date.now().toString(36);
+  return `order-ui-${n}`;
+}
+
+function openMission() {
+  const online = [...state.robots.values()].filter(r => r.connection === 'ONLINE');
+  const all = [...state.robots.values()];
+  const pool = online.length ? online : all;
+  const sel = document.getElementById('ms-robot');
+  sel.innerHTML = pool.map(r =>
+    `<option value="${r.robotId}">${r.robotId}${r.connection === 'ONLINE' ? '' : ' (오프라인)'}</option>`).join('')
+    || '<option value="">연결된 로봇이 없습니다</option>';
+  mission.robotId = pool[0]?.robotId || null;
+  mission.waypoints = [];
+  document.getElementById('ms-order-id').value = nextOrderId();
+  document.getElementById('ms-desc').value = '';
+  document.getElementById('ms-reject').textContent = '';
+  document.getElementById('mission-map').textContent = 'map: ' + (state.map?.mapId || 'unknown');
+  mission.open = true;
+  document.getElementById('mission-modal').classList.add('open');
+  renderMission();
+}
+
+function closeMission() {
+  mission.open = false;
+  document.getElementById('mission-modal').classList.remove('open');
+}
+
+function addWaypoint(nodeId) {
+  if (!nodeId) return;
+  mission.waypoints.push({ nodeId, actionType: '', duration: 5 });
+  renderMission();
+}
+
+function renderMission() {
+  const wps = document.getElementById('ms-wps');
+  const robotId = mission.robotId;
+  const acts = missionActions(robotId);
+  if (!mission.waypoints.length) {
+    wps.innerHTML = '<div class="empty">경유지가 없습니다. 지도에서 노드를 클릭해 추가하세요.</div>';
+  } else {
+    wps.innerHTML = mission.waypoints.map((w, i) => `
+      <div class="wp">
+        <span class="num">${i + 1}</span>
+        <select class="node" data-i="${i}" data-f="nodeId">
+          ${Object.keys(state.map?.nodes || {}).map(n =>
+            `<option value="${n}" ${n === w.nodeId ? 'selected' : ''}>${n}</option>`).join('')}
+        </select>
+        <select class="act" data-i="${i}" data-f="actionType">
+          <option value="" ${w.actionType === '' ? 'selected' : ''}>액션 없음</option>
+          ${acts.map(a => `<option value="${a}" ${a === w.actionType ? 'selected' : ''}>${a}</option>`).join('')}
+        </select>
+        <input class="dur" type="number" min="0" step="1" value="${w.duration}" data-i="${i}" data-f="duration"
+               title="지속시간(초)" ${TIMED_ACTIONS.has(w.actionType) ? '' : 'disabled'} />
+        <button class="mv" data-i="${i}" data-mv="-1" ${i === 0 ? 'disabled' : ''} title="위로">↑</button>
+        <button class="mv" data-i="${i}" data-mv="1" ${i === mission.waypoints.length - 1 ? 'disabled' : ''} title="아래로">↓</button>
+        <button class="del" data-i="${i}" title="삭제">✕</button>
+      </div>`).join('');
+  }
+  document.getElementById('ms-pick-hint').classList.toggle('on', mission.waypoints.length > 0);
+  document.getElementById('btn-send-mission').disabled = !mission.waypoints.length || !mission.robotId;
+}
+
+// 경유지 편집 (위임 한 번으로 추가·변경·이동·삭제 모두 처리)
+document.getElementById('ms-wps').addEventListener('change', (ev) => {
+  const el = ev.target;
+  const i = Number(el.dataset.i);
+  if (!Number.isInteger(i)) return;
+  const w = mission.waypoints[i];
+  if (el.dataset.f === 'nodeId') w.nodeId = el.value;
+  if (el.dataset.f === 'actionType') { w.actionType = el.value; renderMission(); return; }
+  if (el.dataset.f === 'duration') w.duration = Math.max(0, Number(el.value) || 0);
+});
+document.getElementById('ms-wps').addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button');
+  if (!btn) return;
+  const i = Number(btn.dataset.i);
+  if (btn.classList.contains('del')) mission.waypoints.splice(i, 1);
+  if (btn.classList.contains('mv')) {
+    const j = i + Number(btn.dataset.mv);
+    if (j >= 0 && j < mission.waypoints.length) {
+      const [w] = mission.waypoints.splice(i, 1);
+      mission.waypoints.splice(j, 0, w);
+    }
+  }
+  renderMission();
+});
+
+document.getElementById('btn-clear-wps').onclick = () => { mission.waypoints = []; renderMission(); };
+document.getElementById('btn-new-mission').onclick = openMission;
+document.getElementById('btn-close-mission').onclick = closeMission;
+document.getElementById('btn-cancel-mission').onclick = closeMission;
+document.getElementById('ms-robot').onchange = (ev) => { mission.robotId = ev.target.value; renderMission(); };
+
+function toast(kind, text) {
+  const el = document.createElement('div');
+  el.className = kind;
+  el.textContent = text;
+  document.getElementById('toast').appendChild(el);
+  setTimeout(() => el.remove(), kind === 'err' ? 8000 : 4000);
+}
+
+document.getElementById('btn-send-mission').onclick = async () => {
+  const robotId = mission.robotId;
+  if (!robotId) return;
+  const [manufacturer, serialNumber] = robotId.split(':');
+  const body = {
+    manufacturer,
+    serialNumber,
+    orderId: document.getElementById('ms-order-id').value.trim(),
+    orderDescription: document.getElementById('ms-desc').value.trim() || undefined,
+    nodes: mission.waypoints.map(w => ({
+      nodeId: w.nodeId,
+      actions: w.actionType
+        ? [{ actionType: w.actionType, durationS: Number(w.duration) || 0 }]
+        : [],
+    })),
+  };
+  const btn = document.getElementById('btn-send-mission');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const payload = await res.json();
+    if (res.ok) {
+      toast('ok', `임무 전송: ${payload.orderId} → ${payload.robotId} (경유지 ${payload.waypoints}개)`);
+      closeMission();
+    } else {
+      // 거부 사유는 한 번에 전부 보여줘서 운영자가 다시 고칠 수 있게 한다.
+      document.getElementById('ms-reject').textContent =
+        (payload.reasons || ['알 수 없는 오류']).join(' · ');
+      toast('err', '임무가 거부되었습니다');
+    }
+  } catch (e) {
+    document.getElementById('ms-reject').textContent = String(e);
+    toast('err', '전송 실패');
+  } finally {
+    btn.disabled = !mission.waypoints.length;
+  }
+};
+
+function bounds() {
+  const nodes = Object.values(state.map?.nodes || {});
+  if (!nodes.length) return null;
+  const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y);
+  const pad = 3;
+  return {
+    minX: Math.min(...xs) - pad, maxX: Math.max(...xs) + pad,
+    minY: Math.min(...ys) - pad, maxY: Math.max(...ys) + pad,
+  };
+}
+
+/** 임무 서랍이 열려 있으면 맵이 가려지지 않도록 실제로 쓸 수 있는 너비.
+ *  서랍 너비와 동일하게 줄이면 맵 전체가 클릭 가능한 영역에 들어온다. */
+const DRAWER_W = 470;
+function availW(w) { return mission.open ? Math.max(160, w - DRAWER_W) : w; }
+
+/** zoom=1 에서 맵이 캔버스에 딱 맞는 기본 변환(scale + 중심 오프셋). */
+function baseTransform(b, w, h) {
+  const scale = Math.min((w - 40) / (b.maxX - b.minX), (h - 40) / (b.maxY - b.minY));
+  const ox = (w - (b.maxX - b.minX) * scale) / 2 - b.minX * scale;
+  // screen y = h - (worldY * scale + oy). 맵이 세로 중앙에 오도록:
+  // worldY=maxY → (h - mapH)/2, worldY=minY → (h + mapH)/2
+  const oy = (h + (b.maxY - b.minY) * scale) / 2 - b.maxY * scale;
+  return { scale, ox, oy };
+}
+
+function currentTransform(b, w, h) {
+  const base = baseTransform(b, w, h);
+  return { scale: base.scale * view.zoom, ox: base.ox + view.panX, oy: base.oy + view.panY };
+}
+
+function toScreen(x, y, b, w, h) {
+  const t = currentTransform(b, w, h);
+  return [x * t.scale + t.ox, h - (y * t.scale + t.oy)];
+}
+
+/** 화면 좌표 → 월드 좌표 (휠 줌을 커서 기준으로 하기 위해 필요) */
+function screenToWorld(px, py, b, w, h) {
+  const t = currentTransform(b, w, h);
+  return { x: (px - t.ox) / t.scale, y: (h - py - t.oy) / t.scale };
+}
+
+function clampPan(b, w, h) {
+  const base = baseTransform(b, w, h);
+  // 확대하면 맵이 캔버스보다 커지므로, 그 차이의 절반까지만 밀 수 있다.
+  const overW = Math.max(0, (b.maxX - b.minX) * base.scale * view.zoom - w);
+  const overH = Math.max(0, (b.maxY - b.minY) * base.scale * view.zoom - h);
+  const limX = overW / 2, limY = overH / 2;
+  view.panX = Math.max(-limX, Math.min(limX, view.panX));
+  view.panY = Math.max(-limY, Math.min(limY, view.panY));
+}
+
+function resetView() { view.zoom = 1; view.panX = 0; view.panY = 0; }
+
+/** 특정 월드 좌표를 화면 중앙에 오도록 줌 (로봇 더블클릭/선택 시) */
+function focusWorld(x, y, zoom) {
+  view.zoom = zoom || 3;
+  view.panX = 0; view.panY = 0;
+  const w = availW(canvas.width / devicePixelRatio), h = canvas.height / devicePixelRatio;
+  const b = bounds(); if (!b) return;
+  const base = baseTransform(b, w, h);
+  view.panX = w / 2 - (x * base.scale * view.zoom + base.ox);
+  view.panY = (h / 2 - (h - (y * base.scale * view.zoom + base.oy))) * -1;
+  clampPan(b, w, h);
+}
+
+// ── 입력: 휠 줌(커서 기준) · 드래그 팬 · 더블클릭 확대
+canvas.addEventListener('wheel', (ev) => {
+  ev.preventDefault();
+  const w = availW(canvas.width / devicePixelRatio), h = canvas.height / devicePixelRatio;
+  const b = bounds(); if (!b) return;
+  const r = canvas.getBoundingClientRect();
+  const mx = ev.clientX - r.left, my = ev.clientY - r.top;
+  const before = screenToWorld(mx, my, b, w, h);
+  const factor = ev.deltaY < 0 ? 1.25 : 1 / 1.25;
+  view.zoom = Math.max(1, Math.min(12, view.zoom * factor));
+  const t = currentTransform(b, w, h);
+  // 커서가 가리키던 월드 좌표가 같은 화면 위치에 남도록 팬 보정
+  view.panX += mx - (before.x * t.scale + t.ox);
+  view.panY += (h - my) - (before.y * t.scale + t.oy);
+  clampPan(b, w, h);
+}, { passive: false });
+
+canvas.addEventListener('mousedown', (ev) => {
+  view.drag = { x: ev.clientX, y: ev.clientY, panX: view.panX, panY: view.panY };
+  canvas.style.cursor = 'grabbing';
+});
+addEventListener('mouseup', () => { view.drag = null; canvas.style.cursor = 'grab'; });
+addEventListener('mousemove', (ev) => {
+  if (!view.drag) return;
+  view.panX = view.drag.panX + (ev.clientX - view.drag.x);
+  view.panY = view.drag.panY - (ev.clientY - view.drag.y);
+  const w = availW(canvas.width / devicePixelRatio), h = canvas.height / devicePixelRatio;
+  const b = bounds(); if (b) clampPan(b, w, h);
+});
+canvas.addEventListener('dblclick', (ev) => {
+  // 임무 모달이 열려 있을 때는 단일 클릭이 경유지 추가이므로 줌은 막는다.
+  if (mission.open) return;
+  const w = availW(canvas.width / devicePixelRatio), h = canvas.height / devicePixelRatio;
+  const b = bounds(); if (!b) return;
+  const r = canvas.getBoundingClientRect();
+  const p = screenToWorld(ev.clientX - r.left, ev.clientY - r.top, b, w, h);
+  focusWorld(p.x, p.y, Math.min(12, view.zoom * 2));
+});
+canvas.style.cursor = 'grab';
+
+// 임무 모달이 열려 있으면 지도 클릭 = 경유지 추가 (가장 가까운 노드로 스냅).
+canvas.addEventListener('click', (ev) => {
+  if (!mission.open || view.drag) return;
+  const w = availW(canvas.width / devicePixelRatio), h = canvas.height / devicePixelRatio;
+  const b = bounds(); if (!b) return;
+  const r = canvas.getBoundingClientRect();
+  const near = nearestNode(ev.clientX - r.left, ev.clientY - r.top, 26);
+  if (near) addWaypoint(near);
+  else toast('err', '노드 가까이를 클릭하세요');
+});
+
+/** 클릭한 화면 좌표(캔버스 기준 px)에서 maxPx 안의 가장 가까운 노드 id. */
+function nearestNode(px, py, maxPx) {
+  const w = availW(canvas.width / devicePixelRatio), h = canvas.height / devicePixelRatio;
+  const b = bounds(); if (!b) return null;
+  let best = null, bestD = maxPx;
+  for (const [id, n] of Object.entries(state.map.nodes)) {
+    const [sx, sy] = toScreen(n.x, n.y, b, w, h);
+    const d = Math.hypot(sx - px, sy - py);
+    if (d < bestD) { bestD = d; best = id; }
+  }
+  return best;
+}
+
+function render() {
+  renderList();
+  renderDetail();
+  const w = availW(canvas.width / devicePixelRatio), h = canvas.height / devicePixelRatio;
+  ctx.clearRect(0, 0, w, h);
+  const b = bounds();
+  if (!b) {
+    ctx.fillStyle = '#8b9bb8';
+    ctx.font = '13px system-ui';
+    ctx.fillText('맵 데이터가 없습니다 (deploy/maps/plant-a.l1.json)', 20, 30);
+    return;
+  }
+  ctx.strokeStyle = '#24304f'; ctx.fillStyle = '#8b9bb8'; ctx.lineWidth = 1;
+
+  // edges
+  for (const e of state.map.edges || []) {
+    const a = state.map.nodes[e.from], c = state.map.nodes[e.to];
+    if (!a || !c) continue;
+    const [x1, y1] = toScreen(a.x, a.y, b, w, h);
+    const [x2, y2] = toScreen(c.x, c.y, b, w, h);
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+  // nodes
+  for (const [id, n] of Object.entries(state.map.nodes)) {
+    const [x, y] = toScreen(n.x, n.y, b, w, h);
+    ctx.fillRect(x - 3, y - 3, 6, 6);
+    ctx.font = '10px system-ui';
+    ctx.fillText(id, x + 6, y + 3);
+  }
+  // 임무 경로: 편집 중인 경유지를 주황 선 + 번호로 덧그린다.
+  if (mission.open && mission.waypoints.length) {
+    const pts = mission.waypoints
+      .map(w => state.map.nodes[w.nodeId])
+      .filter(Boolean)
+      .map(n => toScreen(n.x, n.y, b, w, h));
+    if (pts.length > 1) {
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (const [x, y] of pts.slice(1)) ctx.lineTo(x, y);
+      ctx.strokeStyle = '#f5a623'; ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+    }
+    ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    mission.waypoints.forEach((wp, i) => {
+      const n = state.map.nodes[wp.nodeId];
+      if (!n) return;
+      const [x, y] = toScreen(n.x, n.y, b, w, h);
+      ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2);
+      ctx.fillStyle = '#f5a623'; ctx.fill();
+      ctx.fillStyle = '#1a1200'; ctx.fillText(String(i + 1), x, y);
+    });
+    ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+  }
+  // robots
+  for (const r of state.robots.values()) {
+    if (!r.position) continue;
+    const [x, y] = toScreen(r.position.x, r.position.y, b, w, h);
+    const online = r.connection === 'ONLINE';
+    ctx.beginPath();
+    ctx.arc(x, y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = online ? '#35d07f' : '#ff5d5d';
+    ctx.fill();
+    if (state.selected === r.robotId) {
+      ctx.strokeStyle = '#4da3ff'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    // heading
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.cos(-r.position.theta) * 14, y + Math.sin(-r.position.theta) * 14);
+    ctx.strokeStyle = '#4da3ff'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#e6ebf5'; ctx.font = '11px system-ui';
+    ctx.fillText(r.robotId.split(':')[1] || r.robotId, x + 10, y - 8);
+  }
+  document.getElementById('zoom-badge').textContent = `줌 ${view.zoom.toFixed(1)}x`;
+}
+
+// 로봇 카드 더블클릭 → 해당 로봇 위치로 확대
+list.addEventListener('dblclick', (ev) => {
+  const el = ev.target.closest('.robot'); if (!el) return;
+  const r = state.robots.get(el.dataset.id);
+  if (r?.position) { state.selected = r.robotId; focusWorld(r.position.x, r.position.y, 4); render(); }
+});
+
+document.getElementById('btn-reset-view').onclick = () => { resetView(); render(); };
+resize();
+boot();
+</script>
+</body>
+</html>

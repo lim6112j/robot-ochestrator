@@ -1,0 +1,54 @@
+{
+  "headerId": 1001,
+  "timestamp": "2026-11-12T12:30:00.000Z",
+  "version": "3.0.0",
+  "manufacturer": "acme",
+  "serialNumber": "AMR-001",
+  "orderId": "order-demo-001",
+  "orderUpdateId": 0,
+  "nodes": [
+    {
+      "nodeId": "ST-07",
+      "sequenceId": 0,
+      "released": true,
+      "nodePosition": {
+        "x": 4.0,
+        "y": 2.0,
+        "theta": 0.0,
+        "mapId": "plant-a/l1",
+        "localized": true
+      },
+      "actions": [
+        {
+          "actionType": "pick",
+          "actionId": "a1",
+          "blockingType": "HARD",
+          "actionParameters": [{ "key": "duration", "value": 3 }]
+        }
+      ]
+    },
+    {
+      "nodeId": "CONV-A",
+      "sequenceId": 2,
+      "released": true,
+      "actions": [
+        {
+          "actionType": "drop",
+          "actionId": "a2",
+          "blockingType": "HARD",
+          "actionParameters": [{ "key": "duration", "value": 2 }]
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "edgeId": "e1",
+      "sequenceId": 1,
+      "released": true,
+      "startNodeId": "ST-07",
+      "endNodeId": "CONV-A",
+      "actions": []
+    }
+  ]
+}

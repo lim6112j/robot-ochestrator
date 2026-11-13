@@ -1,0 +1,18 @@
+# Multi-stage build for the gateway (and a pattern for the other crates).
+FROM rust:1.85-slim AS builder
+WORKDIR /build
+COPY . .
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+RUN cargo build --release --bin gateway
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /build/target/release/gateway /usr/local/bin/gateway
+COPY deploy/maps /etc/rcs/maps
+ENV RCS_MAP=/etc/rcs/maps/plant-a.l1.json
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/gateway"]

@@ -1,0 +1,12 @@
+# Rust
+/target
+**/*.rs.bk
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Local runtime state (broker data, logs)
+*.log
+/data/

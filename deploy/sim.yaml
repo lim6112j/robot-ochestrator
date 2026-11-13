@@ -1,0 +1,77 @@
+# vda5050-sim configuration — 3 heterogeneous fleets on one map.
+#
+#   docker compose -f deploy/docker-compose.yml up -d
+#   cargo run -p vda5050-sim -- --config deploy/sim.yaml
+#
+broker:
+  host: localhost
+  port: 1883
+  clientPrefix: sim
+  interface: vda5050
+  majorVersion: 3
+
+world:
+  map: deploy/maps/plant-a.l1.json
+  tickHz: 20
+
+seed: 42
+
+fleet:
+  # 물류: full v3 support
+  logistics:
+    manufacturer: acme
+    serialPrefix: AMR
+    count: 2
+    profile: v3-full
+    publishHz: 2.0
+    actions: [pick, drop, initPosition, charge, startPause, stopPause, cancelOrder]
+    battery:
+      capacityWh: 500
+      drainW: 80
+      chargeW: 300
+      startPercent: 92
+    faults:
+      rejectOrderProb: 0.0
+      actionFailProb: 0.0
+
+  # 청소: v3 but without zoneSet support (partial support profile)
+  cleaning:
+    manufacturer: sweepco
+    serialPrefix: SCR
+    count: 1
+    profile: v3-partial
+    publishHz: 1.0
+    actions: [cleanZone, startPause, stopPause, cancelOrder]
+    battery:
+      capacityWh: 400
+      drainW: 60
+      chargeW: 250
+      startPercent: 76
+
+  # 감시: full v3 support
+  surveillance:
+    manufacturer: watchco
+    serialPrefix: PTZ
+    count: 1
+    profile: v3-full
+    publishHz: 2.0
+    actions: [patrol, startPause, stopPause, cancelOrder]
+    battery:
+      capacityWh: 300
+      drainW: 40
+      chargeW: 200
+      startPercent: 95
+
+  # v2 전용 로봇: 게이트웨이 인그레스 변환 시험용
+  legacy:
+    manufacturer: otherco
+    serialPrefix: AMR
+    count: 1
+    profile: v2-only
+    publishHz: 2.0
+    actions: [pick, drop, startPause, stopPause, cancelOrder]
+    battery:
+      capacityWh: 500
+      drainW: 80
+      chargeW: 300
+      startPercent: 64

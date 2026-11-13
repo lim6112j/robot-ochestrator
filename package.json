@@ -1,0 +1,12 @@
+{
+  "name": "robot-control-system",
+  "private": true,
+  "scripts": {
+    "check": "cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace",
+    "verify-schemas": "cargo run -p conformance -- verify-schemas",
+    "sim": "cargo run -p vda5050-sim -- --config deploy/sim.yaml",
+    "gateway": "cargo run -p gateway",
+    "warehouse": "cargo run -p vda5050-sim -- --config deploy/sim-warehouse.yaml",
+    "compose": "docker compose -f deploy/docker-compose.yml up"
+  }
+}
