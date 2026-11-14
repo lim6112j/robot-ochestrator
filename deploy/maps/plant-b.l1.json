@@ -1,5 +1,9 @@
 {
   "mapId": "plant-b/l1",
+  "chargers": [
+    "CHG-01",
+    "CHG-02"
+  ],
   "nodes": {
     "RK-AW": {
       "x": 6.0,

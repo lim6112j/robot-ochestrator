@@ -59,6 +59,12 @@ class RobotAPI:
         # is a fleet manager fronting several robots; both look the same here
         # because VDA 5050 addresses robots individually either way.
         self.robots = fleet.get('robots', [])
+        # VDA 5050 mapIds are the robot vendor's own names and need not match
+        # RMF level names — ours are `plant-b/l1` versus `L1`. RMF looks up
+        # transforms by level name, so a robot that reports an unmapped mapId
+        # is refused with "Unable to find a robot transform" and is never
+        # added to the fleet.
+        self.map_names = fleet.get('map_names', {})
 
         self._mqtt = mqtt.Client(
             client_id=f"rmf-adapter-{int(time.time())}",
@@ -254,7 +260,9 @@ class RobotAPI:
         if not state:
             return None
         pos = state.get('mobileRobotPosition')
-        return pos.get('mapId') if pos else None
+        if not pos:
+            return None
+        return self.map_names.get(pos.get('mapId'), pos.get('mapId'))
 
     def is_command_completed(self) -> bool:
         """Return True if the robot has completed its last command."""

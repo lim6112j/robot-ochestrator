@@ -44,37 +44,57 @@
   주체가 필요한데, 프로브는 참여자를 흉내내는 역할이라 응답을 보내도
   진행이 안 된다. 응답 주체는 `fleet_adapter` 다.
 
-#### fleet adapter 세그폴트 — 원인 확정 및 수정 (2026-11-13)
+#### 교통 협상 E2E — 완결 확인 (2026-11-14)
 
-**원인은 이중 언래핑이었다.** `RobotAPI.__init__` 이 스스로
-`config_yaml['fleet_manager']` 를 읽는데, `fleet_adapter.py` 는 이미 언래핑된
-`config_yaml['fleet_manager']` 를 넘기고 있었다. 즉
-`fleet_manager.fleet_manager` 를 찾는 셈.
+시뮬레이터 + 스케줄러 + fleet adapter 를 함께 띄우면, **어댑터의 두 로봇끼리
+교통 협상이 일어나고 `resolved: true` 로 완결된다.**
 
-**세그폴트로 나타난 이유**: RMF 어댑터의 executor 스레드가 그 시점에 FastDDS
-안에 있어서, 파이썬이 언와인드할 때 쯤이면 스택이 이미 사라져 있다. gdb 가
-잡은 C++ 스택은 `pthread_mutex_lock` ←
-`DataReaderHistory::get_first_untaken_info` ← `rclcpp::Executor::wait_for_work`
-인데, 이건 **다른 스레드가 우연히 있던 자리**지 고장 난 곳이 아니다. red herring.
+```
+Require negotiation for: 0 1
+[0] Active negotiation: 0 1
 
-- 진단을 오래 끈 이유 두 가지, 둘 다 거짓 원인을 만들었다:
-  1. 재현 스크립트의 `sys.path.insert(0, ...)` + `import RobotClientAPI` 조합이
-     **그 자체로 세그폴트한다**(RMF 없이도). 이 사실을 모르는 동안 paho 콜백
-     API 버전, `Adapter.start()` 후 `mqtt.Client()`, nudged 항등 변환,
-     `get_known_robot_configuration` 의 콜론 네 가지를 원인으로 지목했고
-     제대로 재현하면 전부 통과한다. **전부 틀린 진단.**
-  2. 프로세스가 죽은 뒤 파이썬이 죽은 스택을 언와인드하며 **정상적으로 실행된
-     줄**에서 `KeyError` 를 보고한다.
-- gdb 를 이미지에 추가했다(`apt-get install -y gdb`; 베이스 이미지에도
-  PyPI 에도 없다). 이게 비로소 실제 스택을 보여줬다.
-- **수정 후 어댑터가 정상 기동한다**: `Finished configuring Easy Full Control
-  adapter for fleet [vda5050Fleet]`, `Mirror handling new sync of 1 queries`.
-  세그폴트 사라짐.
-- **남은 것**: 참여자 등록이 0 명이다. 어댑터는 MQTT `state` 를 구독하고 상태를
-  본 뒤에야 참여자를 등록하므로, 시뮬레이터가 같은 브로커에 발행해야 한다.
-  따라서 교통 협상의 완결은 여전히 미검증.
-- 교훈: 세그폴트가 파이썬 코드에서 났다면, 파이썬 스택은 믿을 수 없다.
-  고장 난 쪽은 다른 스레드일 수 있다.
+# /rmf_traffic/negotiation_conclusion
+conflict_version: 0
+resolved: true
+table:
+- participant: 1
+  version: 1
+- participant: 0
+  version: 1
+```
+
+참여자 0/1 은 `acme:AMR-002` / `acme:AMR-001`, 둘 다 `vda5050Fleet` 소유.
+`resolved: true` 는 어댑터가 스케줄러의 제안에 응답했다는 뜻이라, fleet
+adapter 가 존재하는 이유가 맞았다는 증거다.
+
+여기까지 오는 동안 고친 것 넷. **네 가지 다 조용히 실패했거나 엉뚱한 곳을
+가리켰다:**
+
+1. `api.connect()` 가 호출되지 않았다. 구독은 `_on_connect` 에서 만드므로,
+   연결하지 않으면 로봇 `state` 를 못 보고 참여자도 등록하지 않는다. 로그에
+   이상한 낌새가 없다.
+2. 로봇의 mapId 는 RMF 레벨명이 아니다. 시뮬레이터는 `plant-b/l1` 을 보내는데
+   내비그래프의 레벨은 `L1` 고, RMF 는 레벨명으로 변환을 찾는다. 매핑 없는
+   맵을 보고하는 로봇은 *"Unable to find a robot transform for map
+   [plant-b/l1] while adding robot"* 라는 메시지와 함께 추가되지 않는다.
+   `config.yaml` 에 `map_names` 명시 매핑을 뒀다.
+3. 내비그래프에 충전 웨이포인트가 없었다. RMF 는 충전 웨이포인트 없는 플릿에
+   로봇을 추가하지 않는다: *"Unable to find nearest charging waypoint"*.
+   `lif2rmf` 가 맵의 `chargers` 배열에 있는 노드에 `is_charger: true` 를
+   방출하게 했고, `deploy/maps/plant-b.l1.json` 에 `CHG-01`/`CHG-02` 를
+   명시했다.
+4. 프로브의 버그(어댑터 쪽은 아님): 참여자 ID 는 스케줄러가 주는 대로인데,
+   혼자 돌 때만 0,1 이다. 프로브가 0,1 을 하드코딩해서 어댑터가 먼저 가져간
+   뒤에는 **조용히 엉뚱한 로봇에게 itinerary 를 보내고 있었다**. 반환된 ID 를
+   쓰게 고쳤다.
+
+프로브가 어댑터와 공존할 때도 notice + conclusion 을 모두 관찰한다.
+
+**삭제한 것**: 이번에 추가했던 `--ids` / `--no-answer` 옵션. 어댑터의 참여자를
+대상으로 itinerary 를 주입해도 협상이 시작되지 않는다(스케줄러가
+`Participants` 메시지를 필요로 한다). 검증되지 않은 옵션을 남겨두면 함정이라
+제거했다.
+
 
 #### door adapter 추가 (2026-11-13)
 

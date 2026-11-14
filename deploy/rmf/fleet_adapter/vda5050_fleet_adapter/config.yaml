@@ -45,12 +45,21 @@ rmf_fleet:
 
 fleet_manager:
   # MQTT broker, not a REST prefix.
-  prefix: "mosquitto:1883"
+  #
+  # `localhost`, not the compose service name `mosquitto`: the adapter talks
+  # DDS as well as MQTT, and DDS does not cross a compose bridge, so it has to
+  # run with --network host. On the host network the broker is reachable as
+  # localhost, and `mosquitto` fails to resolve.
+  prefix: "localhost:1883"
   interface_name: "vda5050"
   major_version: 3
   robots:
     - "acme:AMR-001"
     - "acme:AMR-002"
+  # VDA 5050 mapId -> RMF level name. RMF looks transforms up by level name, so
+  # without this the robot's own mapId is refused and it is never added.
+  map_names:
+    "plant-b/l1": "L1"
 
 # VDA 5050 maps are already in metres and RMF works in metres, so no
 # reference-coordinate transform is needed.

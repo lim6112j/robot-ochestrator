@@ -34,6 +34,11 @@ pub struct SourceMap {
     /// Node id → position.
     pub nodes: BTreeMap<String, SourceNode>,
     pub edges: Vec<SourceEdge>,
+    /// Node ids that are charging waypoints. RMF refuses to add a robot to a
+    /// fleet whose nav graph has none, so a map without them cannot be used
+    /// with the fleet adapter at all.
+    #[serde(default)]
+    pub chargers: Vec<String>,
 }
 
 /// A node position.
@@ -112,6 +117,9 @@ pub struct Vertex {
     pub y: f64,
     pub z: f64,
     pub name: String,
+    /// Emitted as the YAML key `is_charger`, which is what
+    /// `parse_graph.cpp` reads to call `set_charger(true)`.
+    pub is_charger: bool,
 }
 
 /// A navigable lane.
@@ -184,6 +192,7 @@ pub fn convert(map: &SourceMap, options: &Options) -> Result<BuildingMap, Error>
             y: node.y,
             z: 0.0,
             name: id.clone(),
+            is_charger: map.chargers.iter().any(|c| c == id),
         });
     }
 
@@ -207,6 +216,7 @@ pub fn convert(map: &SourceMap, options: &Options) -> Result<BuildingMap, Error>
             y: centre.y - dy * half,
             z: 0.0,
             name: format!("{door_node}-door-a"),
+            is_charger: false,
         });
         let b = vertices.len();
         vertices.push(Vertex {
@@ -214,6 +224,7 @@ pub fn convert(map: &SourceMap, options: &Options) -> Result<BuildingMap, Error>
             y: centre.y + dy * half,
             z: 0.0,
             name: format!("{door_node}-door-b"),
+            is_charger: false,
         });
         doors.push(Door {
             v1_idx: a,
@@ -364,12 +375,22 @@ pub fn to_yaml(map: &BuildingMap) -> String {
             // fourth, is read as a scalar where a mapping was expected, and
             // yaml-cpp reports the failure against whichever file it happened
             // to be opening, naming a key that is not in it.
+            //
+            // `is_charger` is in the same options map. RMF refuses to add a
+            // robot to a fleet with no charging waypoint, so a vertex without
+            // it (when it should have it) fails at `add_robot`, not here.
+            let charger = if vertex.is_charger {
+                ", is_charger: true"
+            } else {
+                ""
+            };
             let _ = writeln!(
                 out,
-                "      - [{}, {}, {{name: {}}}]",
+                "      - [{}, {}, {{name: {}{}}}]",
                 yaml_number(vertex.x),
                 yaml_number(vertex.y),
                 yaml_string(&vertex.name),
+                charger,
             );
         }
         out.push_str("    lanes:\n");
@@ -522,6 +543,68 @@ mod tests {
             out.levels[0].lanes.len(),
             doubled.edges.len(),
             "the reverse direction must gain a lane, not merge into one"
+        );
+    }
+
+    #[test]
+    fn a_map_without_chargers_has_no_charging_waypoints() {
+        // RMF refuses to add a robot to a fleet whose nav graph has no
+        // charging waypoint, so this has to stay absent unless asked for.
+        let map = small_map();
+        let out = convert(&map, &Options::default()).expect("converts");
+        assert!(
+            !out.levels[0].vertices.iter().any(|v| v.is_charger),
+            "no charger listed, no is_charger emitted"
+        );
+    }
+
+    #[test]
+    fn listed_nodes_become_charging_waypoints() {
+        let mut map = small_map();
+        map.chargers = vec!["CONV-IN".to_owned(), "RK-AM".to_owned()];
+        let out = convert(&map, &Options::default()).expect("converts");
+        let level = &out.levels[0];
+
+        let chargers: Vec<&str> = level
+            .vertices
+            .iter()
+            .filter(|v| v.is_charger)
+            .map(|v| v.name.as_str())
+            .collect();
+        assert_eq!(chargers, vec!["CONV-IN", "RK-AM"]);
+
+        // A node that is not listed must not be marked, or every waypoint
+        // would look like a charger and RMF would pick an arbitrary one.
+        assert!(!level
+            .vertices
+            .iter()
+            .any(|v| v.name == "RK-AW" && v.is_charger));
+    }
+
+    #[test]
+    fn a_charger_that_is_not_a_node_is_ignored() {
+        let mut map = small_map();
+        map.chargers = vec!["NOPE".to_owned()];
+        let out = convert(&map, &Options::default()).expect("converts");
+        assert!(!out.levels[0].vertices.iter().any(|v| v.is_charger));
+    }
+
+    #[test]
+    fn the_charger_flag_is_a_plain_bool_in_the_vertex_options() {
+        // `parse_graph.cpp` reads `options["is_charger"].as<bool>()`, so it has
+        // to be a bare YAML bool in the same options map as the name.
+        let mut map = small_map();
+        map.chargers = vec!["AS-1W".to_owned()];
+        let out = convert(&map, &Options::default()).expect("converts");
+        let yaml = to_yaml(&out);
+        assert!(
+            yaml.contains("- [0, 6, {name: AS-1W, is_charger: true}]"),
+            "charger flag must sit next to the name in the options map, got:\n{yaml}"
+        );
+        assert_eq!(
+            yaml.matches("is_charger").count(),
+            1,
+            "only the listed node"
         );
     }
 

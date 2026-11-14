@@ -16,6 +16,13 @@ schedule's proposals, and this probe only impersonates a participant — it has
 no policy about who should give way. The answerer is the fleet adapter in
 `deploy/rmf/fleet_adapter`, which is a separate piece of work.
 
+What it does not verify
+-----------------------
+The negotiation's conclusion. Reaching one needs something that answers the
+schedule's proposals, and this probe only impersonates a participant — it has
+no policy about who should give way. The answerer is the fleet adapter in
+`deploy/rmf/fleet_adapter`, which is a separate piece of work.
+
 Two silent failures worth knowing about
 ---------------------------------------
 Both of these produced exactly the same symptom — "no negotiation at all" —
@@ -33,6 +40,22 @@ An earlier version of this file concluded that the schedule not subscribing to
 `/map` was the blocker. It does report `Subscription count: 0`, but that is by
 design — the schedule arbitrates in `(map, x, y, t)` space and never needs the
 nav graph.
+
+What this probe is for now
+--------------------------
+It drives the schedule node on its own, which is enough to show that arbitration
+happens: two conflicting itineraries produce a notice, a state tree with a node
+per participant, and a status. That is the part that was hard to get working.
+
+The **conclusion** is not reached here, and cannot be: a conclusion needs
+somebody with a policy about who gives way, and the only thing that has one is
+the fleet adapter. Run the adapter against the same schedule node — see
+`deploy/rmf/README.md` — and the conclusion does arrive, with `resolved: true`.
+
+Participant ids are whatever the schedule hands back, and they are only `0, 1`
+when nothing else has registered. An earlier version hardcoded `0, 1`, which
+worked while this probe ran alone and silently sent the itineraries to somebody
+else's robots once a fleet adapter took those ids first.
 """
 
 import sys
@@ -170,13 +193,20 @@ class ArbitrationProbe(Node):
 def main(argv=None):
     rclpy.init(args=argv)
     args = [a for a in (argv or sys.argv)[1:] if not a.startswith('_')]
-    map_name = args[0] if args else 'plant-b/l1'
+    map_name = args[0] if args else 'L1'
 
     node = ArbitrationProbe()
     node.wait_for_service()
     print(f'schedule node is up, map={map_name}')
 
     # Two participants, two manufacturers, same narrow aisle.
+    #
+    # The ids the schedule hands back are whatever is free, and they are only
+    # 0 and 1 when nothing else has registered yet — a fleet adapter running
+    # alongside takes those first. Guessing 0,1 sends the itineraries to
+    # somebody else's robots, and the schedule then has nothing to arbitrate
+    # between them, which is indistinguishable from "no conflict".
+    ids = []
     for name, owner in [
         ('acme:AMR-002', 'acme'),
         ('sweepco:SCR-001', 'sweepco'),
@@ -193,6 +223,7 @@ def main(argv=None):
             print(f'  register {name}: FAILED (no response)')
             continue
         print(f'  register {name}: participant_id={result.participant_id}')
+        ids.append(result.participant_id)
 
     # Both robots want the same stretch of aisle, at the same time. The first
     # should be admitted; the second must be told to wait.
@@ -215,6 +246,8 @@ def main(argv=None):
         (36.0, 6.0, 40.0),
     ]
     aisle = [(now_ns + int(t * 1e9), x, y) for (x, y, t) in aisle]
+    # Which participant each route belongs to. With `--ids` these are the
+    # adapter's robots; otherwise they are the two this probe registered.
     for index, (name, points) in enumerate([
         ('acme:AMR-002', aisle),
         # Same lane, opposite direction, same time window.
@@ -233,13 +266,13 @@ def main(argv=None):
                 _, x0, y0, _, _ = points[i - 1]
                 points[i] = (t, x, y, (x - x0) / max(t - points[i - 1][0], 1e-6), 0.0)
         iset = ItinerarySet()
-        iset.participant = index
+        iset.participant = ids[index]
         iset.plan = 0
         iset.itinerary = [route(map_name, points, 0)]
         iset.storage_base = 0
         iset.itinerary_version = 0
         node.pub.publish(iset)
-        print(f'  itinerary submitted for {name} (participant {index})')
+        print(f'  itinerary submitted for {name} (participant {ids[index]})')
 
     # Watch the negotiation topics for the outcome. A rejected or delayed
     # itinerary is what proves the arbitration happened: without it both
@@ -319,17 +352,21 @@ def main(argv=None):
     participants.node_id.node_uuid = 'arbitration-probe'
     participants.node_id.timestamp = node.get_clock().now().to_msg()
     participants.participants = []
-    for index, desc in enumerate(node.registered):
+    for pid, desc in zip(ids, node.registered):
         p = Participant()
-        p.id = index
+        p.id = pid
         p.description = desc
         participants.participants.append(p)
     node.participants_pub.publish(participants)
     print('  live participants published')
 
-    for index in range(len(node.registered)):
+    # The schedule node needs to know where each participant is along its route
+    # before it can tell that two routes contend for the same lane; without it
+    # the itineraries are accepted and nothing is negotiated, which looks
+    # exactly like "no conflict".
+    for pid in ids:
         reached = ItineraryReached()
-        reached.participant = index
+        reached.participant = pid
         reached.plan = 0
         reached.reached_checkpoints = []
         reached.progress_version = 1
@@ -338,7 +375,7 @@ def main(argv=None):
         # A small delay tells the schedule the robot is not yet at its target,
         # which is what makes the two itineraries contend for the same lane.
         delay = ItineraryDelay()
-        delay.participant = index
+        delay.participant = pid
         # Nanoseconds; int64.
         delay.delay = 5_000_000_000
         delay.itinerary_version = 0

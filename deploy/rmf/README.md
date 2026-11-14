@@ -145,12 +145,83 @@ The image also ships a pip-installed copy of the adapter under
 and is an older revision. Delete it when iterating on the source:
 `rm -rf /usr/local/lib/python3.12/dist-packages/vda5050_fleet_adapter`.
 
-### Not yet verified
+## End to end: negotiation reaches a conclusion
 
-Participants are **not** registered — the log shows 0. The adapter subscribes
-to robot `state` over MQTT and only registers a participant once it has seen
-one, so this needs the simulator publishing to the broker at the same time.
-Traffic-negotiation conclusions therefore remain unverified.
+With the simulator, the schedule node and the fleet adapter all running
+together, the adapter's own two robots negotiate and the negotiation is
+resolved:
+
+```
+[rmf_traffic_schedule_node]: Require negotiation for: 0 1
+[rmf_traffic_schedule_node]: [0] Active negotiation: 0 1
+
+# /rmf_traffic/negotiation_conclusion
+conflict_version: 0
+resolved: true
+table:
+- participant: 1
+  version: 1
+- participant: 0
+  version: 1
+```
+
+Participants `0` and `1` are `acme:AMR-002` and `acme:AMR-001`, both owned by
+`vda5050Fleet`. `resolved: true` is the part that matters: it means the adapter
+answered the schedule's proposals, which is the whole point of the fleet
+adapter existing.
+
+### How to reproduce
+
+```
+# 1. simulator, so the adapter has robot state to read
+cargo run -p vda5050-sim -- --config deploy/sim-warehouse.yaml
+
+# 2. schedule node + fleet adapter, in the container
+docker run --rm --network host -v "$PWD/deploy/rmf:/rmf:ro" rcs-rmf:jazzy bash -lc '
+  source /opt/ros/jazzy/setup.bash
+  export ROS_DOMAIN_ID=42
+  export PYTHONPATH=/rmf/fleet_adapter:$PYTHONPATH
+  rm -rf /usr/local/lib/python3.12/dist-packages/vda5050_fleet_adapter
+  ros2 run rmf_traffic_ros2 rmf_traffic_schedule &
+  sleep 12
+  python3 -u -m vda5050_fleet_adapter.fleet_adapter \
+    -c /rmf/fleet_adapter/vda5050_fleet_adapter/config.yaml \
+    -n /rmf/fleet_adapter/nav_graph.yaml'
+```
+
+The adapter dispatches parking tasks on its own shortly after start, which is
+what produces the conflicting itineraries. Watching the conclusion:
+
+```
+ros2 topic echo /rmf_traffic/negotiation_conclusion
+```
+
+`--network host` is required: DDS does not cross a compose bridge. The broker
+is therefore `localhost`, not the compose service name — see the comment in
+`config.yaml`.
+
+### Three things had to be fixed to get here
+
+All three failed silently or with a message that named the wrong thing.
+
+1. **`api.connect()` was never called.** Subscriptions are made from
+   `_on_connect`, so without it the adapter never saw a robot `state`, never
+   registered a participant, and logged nothing unusual.
+2. **The robot's mapId is not the RMF level name.** The simulator publishes
+   `plant-b/l1`; the nav graph's level is `L1`, and RMF looks transforms up by
+   level name. A robot reporting an unmapped map is refused with *"Unable to
+   find a robot transform for map [plant-b/l1] while adding robot"* and is
+   never added. `config.yaml` now carries an explicit `map_names` mapping.
+3. **The nav graph had no charging waypoint.** RMF refuses to add a robot to a
+   fleet without one: *"Unable to find nearest charging waypoint"*. `lif2rmf`
+   now emits `is_charger: true` for the nodes listed in the map's `chargers`
+   array, which `deploy/maps/plant-b.l1.json` now carries for `CHG-01`/`CHG-02`.
+
+A fourth, in the probe rather than the adapter: participant ids are whatever
+the schedule hands back, and they are only `0, 1` when nothing else has
+registered. The probe hardcoded them, which worked while it ran alone and then
+silently aimed its itineraries at the adapter's robots. It now uses the
+returned ids.
 
 ## Verified
 

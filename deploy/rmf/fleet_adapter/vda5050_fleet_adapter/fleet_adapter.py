@@ -131,6 +131,10 @@ def main(argv=sys.argv):
     # and digs `fleet_manager` out itself, so passing the already-unwrapped
     # section here leaves it looking for a key that is not there.
     api = RobotAPI(config_yaml)
+    # Subscriptions are made from `_on_connect`, so without this the adapter
+    # never sees a robot `state` — and RMF only registers a participant once it
+    # has one, so the fleet would silently stay invisible to the scheduler.
+    api.connect()
 
     robots = {}
     for robot_name in fleet_config.known_robots:
@@ -295,7 +299,7 @@ def update_robot(robot: RobotAdapter):
         return
 
     state = rmf_easy.RobotState(
-        data.map,
+        data.map_name,
         data.position,
         data.battery_soc
     )
