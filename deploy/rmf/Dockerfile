@@ -24,7 +24,14 @@ RUN apt-get update -qq \
         ros-jazzy-rmf-lift-msgs \
         python3-colcon-common-extensions \
         python3-pip \
+        gdb \
     && rm -rf /var/lib/apt/lists/*
+
+# The fleet adapter segfaults around RobotAPI construction and the cause is
+# still unknown. A C++ backtrace is the only thing that will name it, and
+# Python's faulthandler cannot help: the process dies before the handler runs,
+# and what Python reports afterwards is an exception unwound from a dead stack.
+# gdb is in neither the base image nor on PyPI, so it comes from apt.
 
 # The fleet adapter talks VDA 5050 over MQTT. `rmf_fleet_adapter_python` is
 # installed from apt, but the template's own client library is not a

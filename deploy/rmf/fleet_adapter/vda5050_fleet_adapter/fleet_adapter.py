@@ -127,9 +127,10 @@ def main(argv=sys.argv):
 
     fleet_handle = adapter.add_easy_fleet(fleet_config)
 
-    # Initialize robot API for this fleet
-    fleet_mgr_yaml = config_yaml['fleet_manager']
-    api = RobotAPI(fleet_mgr_yaml)
+    # Initialize robot API for this fleet. RobotAPI takes the *whole* config
+    # and digs `fleet_manager` out itself, so passing the already-unwrapped
+    # section here leaves it looking for a key that is not there.
+    api = RobotAPI(config_yaml)
 
     robots = {}
     for robot_name in fleet_config.known_robots:

@@ -88,47 +88,69 @@ other.
 Past that point the adapter currently dies — see "Fleet adapter: stops after
 the nav graph is accepted" below.
 
-## Fleet adapter: stops after the nav graph is accepted
+## Fleet adapter: runs
 
-Honest status of `deploy/rmf/fleet_adapter`:
+`deploy/rmf/fleet_adapter` starts and stays up against the real schedule node:
 
-* `from_config_files(config, nav_graph)` **succeeds** against our map. The
-  fleet name and `known_robots` come back correct, and the schedule node
-  reports a new query sync — the nav graph really does reach RMF.
-* `Adapter.make()` and `adapter.start()` succeed, and
-  `add_easy_fleet()` logs `Finished configuring Easy Full Control adapter`.
-* It then dies somewhere around `RobotAPI` construction. `nudged` itself is
-  not the cause: `nudged.estimate` on our identity transform works fine in
-  isolation. The crash is a segfault that surfaces as a misleading
-  `KeyError: 'fleet_manager'` from a later line, because the process is
-  already dead by the time Python unwinds.
+```
+Finished configuring Easy Full Control adapter for fleet [vda5050Fleet]
+Mirror handling new sync of 1 queries from schedule node
+Requesting new schedule update because update timed out
+```
 
-This is **not diagnosed**. What is established is that the failure is *after*
-the nav graph is accepted, so it is not a map-format problem any more.
+### The bug was a double unwrap
 
-### A trap that produced several wrong diagnoses
+`RobotAPI.__init__` reads `config_yaml['fleet_manager']` itself, but
+`fleet_adapter.py` was passing `config_yaml['fleet_manager']` to it — the
+already-unwrapped section. So the constructor went looking for
+`fleet_manager.fleet_manager`, which is not there.
 
-If you reproduce this with a script, do **not** use
-`sys.path.insert(0, ...)` followed by `import RobotClientAPI`. That exact
-combination segfaults on its own — with no RMF adapter running at all. Import
-it as a package (`from vda5050_fleet_adapter.RobotClientAPI import RobotAPI`
-with `PYTHONPATH` pointing at the parent of the package) or load the file
-directly with `importlib.util`, and the import succeeds.
+It presented as a **segfault**, not a `KeyError`, which is why it took so long:
+the RMF adapter's executor thread is in FastDDS at the time, and by the time
+Python unwinds, the stack is gone. `gdb` names it plainly —
+`pthread_mutex_lock` under `DataReaderHistory::get_first_untaken_info` under
+`rclcpp::Executor::wait_for_work` — and that C++ stack is a red herring. It is
+where the *other* thread happens to be, not what broke.
 
-While unaware of this, several plausible causes were identified and each one
-looked convincing in isolation: the paho callback API version, constructing
-`mqtt.Client` after `Adapter.start()`, the `nudged` identity transform, and
-`get_known_robot_configuration` on a name containing a colon. Every one of them
-passes when reproduced properly. None of them is the cause. Do not trust them.
+Two traps worth recording, both of which produced wrong diagnoses:
 
-The misleading `KeyError: 'fleet_manager'` is a second trap: the process dies
-first, and Python unwinds a dead stack and reports an exception from a line
-that did run correctly. `config_yaml` really does contain `fleet_manager` —
-verified by printing the keys immediately before.
+* `sys.path.insert(0, ...)` plus `import RobotClientAPI` segfaults on its own,
+  with no RMF adapter running. Import it as a package or load the file with
+  `importlib` and it works. While unaware of this, four plausible causes were
+  identified — paho's callback API version, `mqtt.Client` after
+  `Adapter.start()`, the `nudged` identity transform, and
+  `get_known_robot_configuration` on a name with a colon — and every one passes
+  when reproduced properly. None is the cause.
+* A misleading `KeyError` is reported from a line that ran correctly, because
+  Python unwinds a dead stack. Printing the keys immediately before shows they
+  are all there.
 
-To actually find it: install gdb (`apt-get install -y gdb`; it is not in the
-image and is not on PyPI) and run the adapter under it, or use
-`faulthandler.dump_traceback_later()` to dump the stack periodically.
+`gdb` is now in the image (`apt-get install -y gdb`; it is in neither the base
+image nor on PyPI), which is what finally named the real stack.
+
+### Running it
+
+```
+pip3 install --break-system-packages nudged
+export PYTHONPATH=/path/to/deploy/rmf/fleet_adapter:$PYTHONPATH
+python3 -m vda5050_fleet_adapter.fleet_adapter \
+  -c .../vda5050_fleet_adapter/config.yaml \
+  -n .../nav_graph.yaml
+```
+
+`PYTHONPATH` must *append* to the ROS path; setting it alone shadows `rclpy`.
+
+The image also ships a pip-installed copy of the adapter under
+`/usr/local/lib/python3.12/dist-packages`, which shadows a mounted source tree
+and is an older revision. Delete it when iterating on the source:
+`rm -rf /usr/local/lib/python3.12/dist-packages/vda5050_fleet_adapter`.
+
+### Not yet verified
+
+Participants are **not** registered — the log shows 0. The adapter subscribes
+to robot `state` over MQTT and only registers a participant once it has seen
+one, so this needs the simulator publishing to the broker at the same time.
+Traffic-negotiation conclusions therefore remain unverified.
 
 ## Verified
 
