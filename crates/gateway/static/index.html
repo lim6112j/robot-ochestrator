@@ -127,7 +127,7 @@
   </div>
   <div class="stats">
     <span>연결 <b id="stat-online">0</b>/<b id="stat-total">0</b></span>
-    <span>임무 <b id="stat-orders">0</b></span>
+    <span>임무 <b id="stat-orders">0</b> · 누적 <b id="stat-orders-seen">0</b></span>
     <span>오류 <b id="stat-errors">0</b></span>
     <span>DLQ <b id="stat-dlq">0</b></span>
   </div>
@@ -191,7 +191,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const state = { robots: new Map(), map: null, selected: null, events: [], doors: [] };
+const state = { robots: new Map(), map: null, selected: null, events: [], doors: [], metrics: null };
 // API 토큰: --api-token 으로 게이트웨이를 띄운 경우 모든 /api/* 와 /ws 가 요구한다.
 // localStorage 에 보관해 새로고침해도 다시 묻지 않는다.
 const auth = {
@@ -241,6 +241,19 @@ async function apiGet(path) {
   return res;
 }
 
+/** 누적 카운터(/api/metrics)를 받아 헤더에 반영한다. */
+async function refreshMetrics() {
+  try {
+    const m = await apiGet('/api/metrics').then(r => r.json());
+    state.metrics = m;
+    const el = document.getElementById('stat-orders-seen');
+    if (el) el.textContent = m.orders_seen ?? 0;
+  } catch (e) {
+    // 메트릭은 부가 정보이므로 실패해도 관제 화면은 동작해야 한다.
+    console.warn('메트릭 로드 실패:', e);
+  }
+}
+
 async function boot() {
   let robots, map;
   try {
@@ -266,6 +279,9 @@ async function boot() {
   render();
   connectWs();
   setInterval(render, 250);
+  // 누적 카운터는 초당 여러 번 갱신할 이유가 없어 따로 느리게 폴링한다.
+  refreshMetrics();
+  setInterval(refreshMetrics, 2000);
 }
 
 let retriedWithoutToken = 0;

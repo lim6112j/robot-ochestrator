@@ -50,6 +50,44 @@ pub fn connect(
     rumqttc::AsyncClient::new(options, 512)
 }
 
+/// The MQTT wildcard subscriptions the gateway opens.
+///
+/// `Order` is here because `orders_seen` counts what the gateway *observes* on
+/// the wire, which is a different number from `orders_published` (what the
+/// dashboard asked it to send). Without this subscription the order branch in
+/// [`Store::count_message`] is unreachable and `orders_seen` is stuck at zero
+/// while missions are flowing, which reads as "nothing is happening".
+///
+/// `Visualization` is counted but not stored: it is high frequency and carries
+/// nothing the dashboard needs beyond knowing the robot is alive.
+#[must_use]
+pub fn subscriptions(interface: &str, major_version: u8, accept_v2: bool) -> Vec<String> {
+    let mut subscriptions = Vec::new();
+    for topic in [
+        Topic::Order,
+        Topic::State,
+        Topic::Visualization,
+        Topic::Connection,
+        Topic::Factsheet,
+    ] {
+        subscriptions.push(TopicPath::wildcard(interface, major_version, topic));
+    }
+    if accept_v2 {
+        // A v2-only robot publishes orders on the legacy interface too, so
+        // subscribing to its state but not its order would leave half the
+        // picture missing.
+        for topic in [
+            Topic::Order,
+            Topic::State,
+            Topic::Factsheet,
+            Topic::Connection,
+        ] {
+            subscriptions.push(TopicPath::wildcard("uomg", 2, topic));
+        }
+    }
+    subscriptions
+}
+
 /// Runs the MQTT event loop until the process ends.
 ///
 /// Takes the shared client of [`connect`] — it subscribes with it — plus
@@ -61,27 +99,7 @@ pub async fn run(
     config: IngestConfig,
     store: Arc<Store>,
 ) -> Result<(), IngestError> {
-    // Subscribe to every robot on the configured interface, plus the legacy v2 one.
-    let mut subscriptions = Vec::new();
-    for topic in [
-        Topic::State,
-        Topic::Visualization,
-        Topic::Connection,
-        Topic::Factsheet,
-    ] {
-        subscriptions.push(TopicPath::wildcard(
-            &config.interface,
-            config.major_version,
-            topic,
-        ));
-    }
-    if config.accept_v2 {
-        subscriptions.push(TopicPath::wildcard("uomg", 2, Topic::State));
-        subscriptions.push(TopicPath::wildcard("uomg", 2, Topic::Factsheet));
-        subscriptions.push(TopicPath::wildcard("uomg", 2, Topic::Connection));
-    }
-
-    for subscription in subscriptions {
+    for subscription in subscriptions(&config.interface, config.major_version, config.accept_v2) {
         client
             .subscribe(subscription.clone(), rumqttc::QoS::AtMostOnce)
             .await?;
@@ -115,7 +133,7 @@ pub async fn run(
     clippy::too_many_lines,
     reason = "one branch per VDA 5050 topic keeps the routing table readable"
 )]
-async fn handle_message(
+pub async fn handle_message(
     validator: &MessageValidator,
     store: Arc<Store>,
     topic: &str,
@@ -126,7 +144,12 @@ async fn handle_message(
         return;
     };
 
-    store.count_message(false, path.topic).await;
+    // Deliberately no count here. This used to count every arriving message
+    // on entry, and each topic branch then counted the same message again, so
+    // `messages_seen` and `orders_seen` came out at twice the truth. Exactly
+    // one call per message now happens where its fate is known: the branch it
+    // belongs to on success, `reject` on a schema violation, or the `_` arm
+    // below for a topic with no handler.
 
     match path.topic {
         Topic::State => {
@@ -255,12 +278,34 @@ async fn handle_message(
         Topic::Visualization => {
             store.count_message(true, Topic::Visualization).await;
         }
-        _ => {}
+        Topic::Order => {
+            // Counted, not stored: the robot's own `state` is what reports which
+            // order it is running, and that is the authoritative view. This
+            // branch exists so `orders_seen` reflects orders arriving on the
+            // wire from any source — this gateway included, since a broker
+            // echoes a publisher's own messages back to it.
+            //
+            // A malformed order is still worth a rejection record: it means
+            // somebody is publishing something the spec does not allow.
+            match validator.validate_bytes(Topic::Order, payload) {
+                Ok(_) => store.count_message(true, Topic::Order).await,
+                Err(rejected) => reject(store.clone(), &path, rejected.reasons).await,
+            }
+        }
+        // A topic with no handler still counts as traffic: the counter's job is
+        // to show what arrived, not only what the gateway understands.
+        _ => {
+            store.count_message(false, path.topic).await;
+        }
     }
 }
 
 async fn reject(store: Arc<Store>, path: &TopicPath, reasons: Vec<String>) {
     warn!(topic = %path, ?reasons, "schema violation, message rejected");
+    // The message arrived and was refused, so it counts as seen but not valid.
+    // Without this, a rejected message disappears from the counters entirely
+    // and the gateway looks quieter than it is.
+    store.count_message(false, path.topic).await;
     store
         .record_rejection(DlqEntry {
             topic: path.to_string(),

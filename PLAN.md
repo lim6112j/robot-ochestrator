@@ -96,6 +96,35 @@ adapter 가 존재하는 이유가 맞았다는 증거다.
 제거했다.
 
 
+#### orders_seen 메트릭 — 이중 카운트까지 함께 수정 (2026-11-14)
+
+`orders_seen` 가 항상 0 이었다. 원인은 게이트웨이가 `order` 토픽을 구독하지
+않은 것이라, `count_message` 의 `topic == Topic::Order` 분기에 도달할 수 없었다.
+
+구독을 추가하자 **두 번째 버그이 드러났다**: `handle_message` 진입부에서 모든
+메시지를 `count_message(false, topic)` 로 세고, 각 토픽 분기가 동일 메시지를
+다시 `count_message(true, topic)` 로 셌다. 그래서 임무 1 건에 `orders_seen` 가
+2 올라갔다. 기존에도 `messages_seen` 이 모든 메시지에 대해 2 배로 세이고 있었는데
+(factsheet 5 개 → `messages_seen: 10`), 아무도 그 값을 단정하는 테스트가 없어
+숨어 있었다.
+
+- 수정: 진입부 카운트를 제거하고, 메시지당 정확히 한 번 세는 지점을 운명이
+  결정되는 곳으로 옮겼다 — 성공은 해당 분기, 스키마 위반은 `reject`, 핸들러 없는
+  토픽은 `_` arm. 거부된 메시지도 `messages_seen` 에는 들어가야 하므로 `reject`
+  에서 센다(그렇지 않으면 거부가 카운터에서 사라져 게이트웨이가 조용해 보인다).
+- `orders_seen` 의미는 "order 토픽에서 본 메시지 수(유효 무관)" 로 확정했다.
+  `count_message` 의 `valid` 플래그는 `messages_valid` 에만 쓰이고 `topic ==
+  Topic::Order` 검사는 validity 를 보지 않으므로, 이것이 원래 의도였다.
+- `handle_message` 를 `pub` 로 공개해 메시지 라우터를 직접 테스트하게 했다.
+- 대시보드 헤더에 `임무 N · 누적 M` 표시를 추가했다. 종전에는 `orders_seen` 가
+  `/api/metrics` 에만 존재하고 아무데도 표시되지 않아, 0 인 줄조차 몰랐다.
+  (헤더의 `임무` 는 "지금 임무 수행 중인 로봇 수" 라 전혀 다른 값이다.)
+
+검증: 실제 브로커 기준선 `seen=5`(factsheet 5 개), 임무 3 건 → `orders_seen=3`,
+`orders_published=3`. 깨진 임무를 와이어에 직접 쏘면 `seen +1`, `rejected +1`,
+`valid` 불변, DLQ 에 사유 기록. 워크스페이스 107 테스트 통과.
+
+
 #### door adapter 추가 (2026-11-13)
 
 `deploy/rmf/door_adapter`: RMF `door_states` 발행 + `door_requests` 수락.

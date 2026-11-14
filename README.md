@@ -195,8 +195,20 @@ cargo run -p gateway -- --api-token "$(openssl rand -hex 24)" --http-addr 0.0.0.
 - REST API: `/api/robots`, `/api/robots/{id}`, `/api/events`, `/api/metrics`, `/api/dlq`, `/api/map`
 - 실시간 스트림: WebSocket `/ws`
 
-임무를 보내려면(예: `acme/AMR-001`에게 ST-07 픽업 → 컨베이어 A 드롭):
+### 카운터 읽는 법
 
+`/api/metrics` 가 두 개의 임무 관련 숫자를 내놓는데, 둘은 다른 것을 센다:
+
+- `orders_published` — 대시보드가 이 게이트웨이에 보내 **발행시킨** 임무.
+- `orders_seen` — `order` 토픽에서 **관찰한** 임무 메시지. 외부 FMS 가 발행한
+  것과, 브로커가 자기 발행을 되돌려 주는 것(게이트웨이 자신의 임무 포함)을 모두
+  센다. 스키마에 어긋난 임무도 메시지이므로 포함하고, 유효/무효 구분은
+  `messages_valid` / `messages_rejected` 가 맡는다.
+
+헤더의 `임무` 는 이 둘과 또 다르게 **지금 임무를 수행 중인 로봇 수**이고, 그
+옆의 `누적` 이 `orders_seen` 이다.
+
+임무를 보내려면(예: `acme/AMR-001`에게 ST-07 픽업 → 컨베이어 A 드롭):
 ```bash
 mosquitto_pub -h localhost -t vda5050/v3/acme/AMR-001/order -f deploy/examples/order.json
 ```
