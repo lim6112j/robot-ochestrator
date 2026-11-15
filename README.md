@@ -195,6 +195,22 @@ cargo run -p gateway -- --api-token "$(openssl rand -hex 24)" --http-addr 0.0.0.
 - REST API: `/api/robots`, `/api/robots/{id}`, `/api/events`, `/api/metrics`, `/api/dlq`, `/api/map`
 - 실시간 스트림: WebSocket `/ws`
 
+### API 문서
+
+**http://localhost:8090/api/docs/** — Swagger UI. 모든 엔드포인트와 요청/응답
+스키마를 브라우저에서 직접 눌러보며 테스트할 수 있다. 오른쪽 위 **Authorize** 에
+`--api-token` 값을 넣으면 인증이 필요한 호출도 그대로 쏴진다.
+
+스펙 자체는 `/api-docs/openapi.json` (OpenAPI 3.1). 이 파일은 **코드에서 생성**된다
+— 핸들러 위의 `#[utoipa::path]` 속성과 응답 타입의 `#[derive(ToSchema)]` 에서
+파생하므로, API를 고치면 다음 빌드에서 문서가 함께 바뀐다. 손으로 작성한 문서가
+코드와 어긋나는 문제가 구조적으로 사라진다.
+
+스펙은 토큰 없이 열린다. 클라이언트가 "토큰이 필요하다"는 사실을 알려면 그
+스펙을 먼저 읽을 수 있어야 하기 때문이다.
+
+`/api/docs/` 는 인증 없이, `/api/*` 와 `/ws` 는 토큰을 요구한다.
+
 ### 카운터 읽는 법
 
 `/api/metrics` 가 두 개의 임무 관련 숫자를 내놓는데, 둘은 다른 것을 센다:

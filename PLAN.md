@@ -125,6 +125,41 @@ adapter 가 존재하는 이유가 맞았다는 증거다.
 `valid` 불변, DLQ 에 사유 기록. 워크스페이스 107 테스트 통과.
 
 
+#### utoipa OpenAPI 도입 (2026-11-14)
+
+REST API 문서를 코드에서 생성한다. `utoipa` + `utoipa-axum` +
+`utoipa-swagger-ui`.
+
+- **경로 11개, 스키마 28개.** `/api-docs/openapi.json` (OpenAPI 3.1) 과
+  Swagger UI 페이지 `/api/docs/`. 대시보드 헤더에 링크를 달았다.
+- **스키마를 좁혔다.** `/api/metrics`, `/api/dlq`, `/api/events`,
+  `/api/adapters`, `/api/shared-resources` 가 `Json<serde_json::Value>` 를
+  돌려줘 스키마가 없었다. `Metrics`, `DlqView`, `GatewayEvent`, `AdapterView`,
+  `SharedResourceView`, `MissionPublished`, `InstantActionsPublished` 로
+  구체화하고 35개 VDA 5050 타입에 `ToSchema` 를 붙였다.
+  - 이 과정에서 `/api/adapters` 의 `sharedResources` 가 원래
+    `SharedResource` 객체 배열이었는데 `Vec<String>` 으로 잘못 좁히려다
+    컴파일 오류로 잡혔다. 원래 형태를 보존하는 `SharedResourceEntry` 로 갔다.
+  - `Metrics` 에 `rename_all = "camelCase"` 를 달면 **와이어 형식이 바뀌어**
+    대시보드(`m.orders_seen`)가 깨진다. 문서화가 API 를 바꾸면 안 되므로
+    snake_case 유지. 테스트로 못 박았다.
+- **보안 스키마는 derive 로 못 만든다.** `#[openapi(security(("bearer" = [])))]`
+  은 스키마를 *요구*만 하고 *정의*하지 않는다. utoipa 5.5 의 `components()` 는
+  `schemas`/`responses` 만 받아 `security_schemes` 속성이 없다. 그래서
+  `openapi_spec()` 함수에서 `add_security_scheme` 로 채운다 — 안 그러면
+  Swagger UI 에 Authorize 버튼이 안 뜨고 스펙이 dangling 참조를 가진다.
+- **SwaggerUi::url() 이 같은 경로에 라우트를 만든다.** `/api/openapi.json` 을
+  따로 등록하면 "Overlapping method route" 로 죽는다. utoipa 관례
+  `/api-docs/openapi.json` 하나만 쓴다.
+- **스펙은 토큰 없이 열린다.** 클라이언트가 토큰이 필요하다는 사실을 알려면 그
+  스펙을 먼저 읽을 수 있어야 하므로.
+
+테스트(`tests/openapi.rs`, 6개)가 드리프트를 실제로 잡는지 확인했다 — spec
+`paths` 에서 `events` 를 빼자 2개 테스트가 동시에 실패했다. 내용: 라우트 전부가
+spec 에 있는지, security 참조가 정의된 스키마를 가리키는지, spec 은 열려 있고
+API는 닫혀 있는지, `MissionPublished` 스키마가 실제 응답과 같은지, `Metrics` 가
+snake_case 를 유지하는지, 두 POST 의 400 이 `OrderRejection` 를 가리키는지.
+
 #### door adapter 추가 (2026-11-13)
 
 `deploy/rmf/door_adapter`: RMF `door_states` 발행 + `door_requests` 수락.

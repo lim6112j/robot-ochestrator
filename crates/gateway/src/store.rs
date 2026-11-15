@@ -16,7 +16,7 @@ pub struct DlqEntry {
 }
 
 /// An operational event worth showing in the UI.
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum GatewayEvent {
     RobotOnline {
@@ -55,7 +55,11 @@ pub enum GatewayEvent {
 }
 
 /// Counters exposed on `/api/metrics`.
-#[derive(Debug, Default, Clone, serde::Serialize)]
+///
+/// Field names stay `snake_case`: that is what this endpoint has always emitted
+/// and what the dashboard reads. Adding `ToSchema` documents the shape, it does
+/// not get to change it.
+#[derive(Debug, Default, Clone, serde::Serialize, utoipa::ToSchema)]
 pub struct Metrics {
     pub messages_seen: u64,
     pub messages_valid: u64,

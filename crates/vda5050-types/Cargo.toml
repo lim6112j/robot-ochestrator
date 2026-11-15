@@ -16,6 +16,7 @@ serde_json = "1"
 # `$ref`s would need a network at runtime (bad for air-gapped factory networks).
 jsonschema = { version = "0.61", default-features = false, features = ["resolve-file"] }
 thiserror = "2"
+utoipa = "5.5.0"
 
 [build-dependencies]
 serde_json = "1"

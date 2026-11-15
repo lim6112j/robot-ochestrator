@@ -11,12 +11,13 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
-use serde_json::json;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 use crate::orders::{
     InstantActionRequest, OrderAssembler, OrderPublisher, OrderRequest, INSTANT_ACTIONS,
 };
-use crate::store::Store;
+use crate::store::{GatewayEvent, Metrics, Store};
 use vda5050_types::MessageValidator;
 
 /// Combined application state.
@@ -33,11 +34,83 @@ pub struct AppState {
 }
 
 /// Snapshot returned by `/api/robots`.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct FleetSnapshot {
     pub robots: Vec<vda5050_types::CanonicalRobot>,
     pub online: usize,
     pub total: usize,
+}
+
+/// The API contract, generated from the handlers above.
+///
+/// Because it is derived from the code, it cannot drift: adding a field to a
+/// response changes the spec on the next build. That is the whole point — a
+/// hand-written README goes stale the moment a handler changes.
+#[derive(OpenApi, Debug)]
+#[openapi(
+    info(
+        title = "Robot control system gateway",
+        version = "0.1.0",
+        description = "VDA 5050 v3.0.0 fleet gateway: robot state, missions, \
+                       instant actions and the digital-twin stream.",
+    ),
+    // Every `/api/*` route and `/ws` sits behind a bearer token; only the
+    // dashboard at `/` is served without one.
+    security(("bearer" = [])),
+    paths(
+        robots,
+        robot,
+        events,
+        metrics,
+        dlq,
+        map,
+        adapters,
+        shared_resources,
+        instant_action_catalog,
+        publish_order,
+        publish_instant_actions,
+    ),
+    components(schemas(
+            FleetSnapshot,
+            AdapterView,
+            SharedResourceView,
+            DlqView,
+            MissionPublished,
+            InstantActionsPublished,
+            crate::orders::OrderRequest,
+            crate::orders::Waypoint,
+            crate::orders::ActionSpec,
+            crate::orders::InstantActionRequest,
+            crate::orders::InstantActionSpec,
+            OrderRejection,
+            Metrics,
+            GatewayEvent,
+            vda5050_types::CanonicalRobot,
+        ))
+)]
+pub struct ApiDoc;
+
+/// The spec with its bearer scheme filled in.
+///
+/// The `#[openapi]` attribute accepts `security(("bearer" = []))` to *require*
+/// the scheme but has no way to *define* it, so without this the requirements
+/// name a scheme that does not exist: Swagger UI shows no way to supply a
+/// token, and the spec references a dangling component.
+fn openapi_spec() -> utoipa::openapi::OpenApi {
+    let mut spec = ApiDoc::openapi();
+    let scheme = utoipa::openapi::security::SecurityScheme::Http(
+        utoipa::openapi::security::HttpBuilder::new()
+            .scheme(utoipa::openapi::security::HttpAuthScheme::Bearer)
+            .bearer_format("opaque token")
+            .description(Some(
+                "The gateway's --api-token, sent as `Authorization: Bearer <token>`.",
+            ))
+            .build(),
+    );
+    if let Some(components) = spec.components.as_mut() {
+        components.add_security_scheme("bearer", scheme);
+    }
+    spec
 }
 
 /// Build the router.
@@ -68,6 +141,10 @@ pub fn router(state: AppState) -> Router {
 
     Router::new()
         .route("/", get(index))
+        // Swagger UI owns both the docs page and the spec it reads, at the
+        // utoipa convention. Registering our own `/api/openapi.json` as well
+        // would collide with the route `url()` creates.
+        .merge(SwaggerUi::new("/api/docs").url("/api-docs/openapi.json", openapi_spec()))
         .merge(protected)
         .with_state(state)
 }
@@ -78,6 +155,12 @@ async fn index() -> Html<&'static str> {
 }
 
 /// All robots.
+#[utoipa::path(
+    get,
+    path = "/api/robots",
+    responses((status = 200, body = FleetSnapshot)),
+    security(("bearer" = []))
+)]
 async fn robots(State(state): State<AppState>) -> Json<FleetSnapshot> {
     let robots = state.store.robots().await;
     let online = robots
@@ -93,6 +176,16 @@ async fn robots(State(state): State<AppState>) -> Json<FleetSnapshot> {
 }
 
 /// One robot.
+#[utoipa::path(
+    get,
+    path = "/api/robots/{robot_id}",
+    params(("robot_id" = String, Path, description = "manufacturer:serialNumber")),
+    responses(
+        (status = 200, body = vda5050_types::CanonicalRobot),
+        (status = 404, description = "no robot with that id")
+    ),
+    security(("bearer" = []))
+)]
 async fn robot(
     State(state): State<AppState>,
     Path(robot_id): Path<String>,
@@ -106,59 +199,133 @@ async fn robot(
 }
 
 /// Recent events.
-async fn events(State(state): State<AppState>) -> Json<Vec<serde_json::Value>> {
-    let events: Vec<serde_json::Value> = state
-        .store
-        .events(100)
-        .await
-        .iter()
-        .filter_map(|e| serde_json::to_value(e).ok())
-        .collect();
-    Json(events)
+#[utoipa::path(
+    get,
+    path = "/api/events",
+    responses((status = 200, body = Vec<GatewayEvent>)),
+    security(("bearer" = []))
+)]
+async fn events(State(state): State<AppState>) -> Json<Vec<GatewayEvent>> {
+    Json(state.store.events(100).await)
 }
 
 /// Metrics counters.
-async fn metrics(State(state): State<AppState>) -> Json<serde_json::Value> {
-    let metrics = state.store.metrics().await;
-    Json(serde_json::to_value(metrics).unwrap_or(serde_json::Value::Null))
+///
+/// Field names are `snake_case` on this endpoint — that is what it has always
+/// emitted and what the dashboard reads.
+#[utoipa::path(
+    get,
+    path = "/api/metrics",
+    responses((status = 200, body = Metrics)),
+    security(("bearer" = []))
+)]
+async fn metrics(State(state): State<AppState>) -> Json<Metrics> {
+    Json(state.store.metrics().await)
+}
+
+/// One rejected message, as the DLQ shows it.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DlqView {
+    pub topic: String,
+    pub topic_kind: String,
+    pub reasons: Vec<String>,
 }
 
 /// Recent DLQ entries.
-async fn dlq(State(state): State<AppState>) -> Json<Vec<serde_json::Value>> {
-    let entries: Vec<serde_json::Value> = state
+#[utoipa::path(
+    get,
+    path = "/api/dlq",
+    responses((status = 200, body = Vec<DlqView>)),
+    security(("bearer" = []))
+)]
+async fn dlq(State(state): State<AppState>) -> Json<Vec<DlqView>> {
+    let entries = state
         .store
         .dlq(50)
         .await
         .iter()
-        .map(|e| {
-            serde_json::json!({
-                "topic": e.topic,
-                "topicKind": e.topic_kind.to_string(),
-                "reasons": e.reasons,
-            })
+        .map(|e| DlqView {
+            topic: e.topic.clone(),
+            topic_kind: e.topic_kind.to_string(),
+            reasons: e.reasons.clone(),
         })
         .collect();
     Json(entries)
 }
 
 /// The building map used by the dashboard.
+///
+/// Free-form: the map file is passed through verbatim, so its shape is
+/// whatever the served map happens to contain.
+#[utoipa::path(
+    get,
+    path = "/api/map",
+    responses((status = 200, body = Value)),
+    security(("bearer" = []))
+)]
 async fn map(State(state): State<AppState>) -> Json<Value> {
     Json((*state.map_json).clone())
 }
 
+/// One shared resource as `/api/adapters` reports it.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SharedResourceEntry {
+    pub id: String,
+    pub kind: String,
+    pub contenders: Vec<String>,
+}
+
+/// One registered fleet adapter and what they can do.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AdapterView {
+    pub manufacturer: String,
+    pub robots: usize,
+    pub robot_ids: Vec<String>,
+    pub shared_resources: Vec<SharedResourceEntry>,
+}
+
 /// Registered fleet adapters and what they can do.
-async fn adapters(State(state): State<AppState>) -> Json<Vec<serde_json::Value>> {
+#[utoipa::path(
+    get,
+    path = "/api/adapters",
+    responses((status = 200, body = Vec<AdapterView>)),
+    security(("bearer" = []))
+)]
+async fn adapters(State(state): State<AppState>) -> Json<Vec<AdapterView>> {
     let mut out = Vec::new();
     for adapter in state.store.adapters().await {
         let robots = adapter.robots().await;
-        out.push(serde_json::json!({
-            "manufacturer": adapter.manufacturer(),
-            "robots": robots.len(),
-            "robotIds": robots.iter().map(|r| r.robot_id.clone()).collect::<Vec<_>>(),
-            "sharedResources": adapter.shared_resources().await,
-        }));
+        out.push(AdapterView {
+            manufacturer: adapter.manufacturer().to_owned(),
+            robots: robots.len(),
+            robot_ids: robots.iter().map(|r| r.robot_id.clone()).collect(),
+            shared_resources: adapter
+                .shared_resources()
+                .await
+                .into_iter()
+                .map(|r| SharedResourceEntry {
+                    id: r.id,
+                    kind: format!("{:?}", r.kind),
+                    contenders: r.contenders,
+                })
+                .collect(),
+        });
     }
     Json(out)
+}
+
+/// A shared resource and who is holding it.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SharedResourceView {
+    pub id: String,
+    pub kind: String,
+    pub contenders: Vec<String>,
+    pub held_by: Vec<String>,
+    pub manufacturer: String,
 }
 
 /// Shared resources (doors, lifts) robots may contend for.
@@ -166,7 +333,13 @@ async fn adapters(State(state): State<AppState>) -> Json<Vec<serde_json::Value>>
 /// The dashboard uses this to explain why a robot is waiting: a robot stopped
 /// at a door and a robot that lost its connection look identical in a
 /// position plot.
-async fn shared_resources(State(state): State<AppState>) -> Json<Vec<serde_json::Value>> {
+#[utoipa::path(
+    get,
+    path = "/api/shared-resources",
+    responses((status = 200, body = Vec<SharedResourceView>)),
+    security(("bearer" = []))
+)]
+async fn shared_resources(State(state): State<AppState>) -> Json<Vec<SharedResourceView>> {
     let mut out = Vec::new();
     for adapter in state.store.adapters().await {
         for resource in adapter.shared_resources().await {
@@ -176,32 +349,59 @@ async fn shared_resources(State(state): State<AppState>) -> Json<Vec<serde_json:
                     held_by.push(robot.robot_id);
                 }
             }
-            out.push(serde_json::json!({
-                "id": resource.id,
-                "kind": format!("{:?}", resource.kind),
-                "contenders": resource.contenders,
-                "heldBy": held_by,
-                "manufacturer": adapter.manufacturer(),
-            }));
+            out.push(SharedResourceView {
+                id: resource.id,
+                kind: format!("{:?}", resource.kind),
+                contenders: resource.contenders,
+                held_by,
+                manufacturer: adapter.manufacturer().to_owned(),
+            });
         }
     }
     Json(out)
 }
 
 /// The instant actions the control screen offers.
+#[utoipa::path(
+    get,
+    path = "/api/instant-actions",
+    responses((status = 200, body = Vec<String>)),
+    security(("bearer" = []))
+)]
 async fn instant_action_catalog() -> Json<&'static [&'static str]> {
     Json(INSTANT_ACTIONS)
+}
+
+/// What an instant-action submission returns.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct InstantActionsPublished {
+    pub status: &'static str,
+    pub robot_id: String,
+    pub header_id: u64,
+    pub actions: Vec<String>,
 }
 
 /// `POST /api/robots/{robot_id}/instant-actions` — pause, resume or cancel.
 ///
 /// This is the counterpart to a mission: without it an operator who sent a
 /// wrong order has no way to stop the robot short of killing the simulator.
+#[utoipa::path(
+    post,
+    path = "/api/robots/{robot_id}/instant-actions",
+    params(("robot_id" = String, Path, description = "manufacturer:serialNumber")),
+    request_body = InstantActionRequest,
+    responses(
+        (status = 200, body = InstantActionsPublished),
+        (status = 400, body = OrderRejection, description = "the action was rejected before publication")
+    ),
+    security(("bearer" = []))
+)]
 async fn publish_instant_actions(
     State(state): State<AppState>,
     Path(robot_id): Path<String>,
     request: Result<axum::Json<InstantActionRequest>, axum::extract::rejection::JsonRejection>,
-) -> Result<Json<Value>, OrderRejection> {
+) -> Result<Json<InstantActionsPublished>, OrderRejection> {
     let axum::Json(request) = request?;
     let message =
         crate::orders::submit_instant(&state.publisher, &state.store, &robot_id, &request)
@@ -211,12 +411,16 @@ async fn publish_instant_actions(
                 reasons,
             })?;
 
-    Ok(Json(json!({
-        "status": "published",
-        "robotId": robot_id,
-        "headerId": message.header_id,
-        "actions": message.actions.iter().map(|a| a.action_type.clone()).collect::<Vec<_>>(),
-    })))
+    Ok(Json(InstantActionsPublished {
+        status: "published",
+        robot_id,
+        header_id: message.header_id,
+        actions: message
+            .actions
+            .iter()
+            .map(|a| a.action_type.clone())
+            .collect(),
+    }))
 }
 
 /// WebSocket endpoint streaming gateway events.
@@ -225,7 +429,7 @@ async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl
 }
 
 /// A rejection the dashboard can show verbatim.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct OrderRejection {
     pub error: &'static str,
     pub reasons: Vec<String>,
@@ -252,10 +456,31 @@ impl From<axum::extract::rejection::JsonRejection> for OrderRejection {
 /// The request carries the route only: `headerId`, `sequenceId` parity and map
 /// geometry are derived, the result is schema-validated, and only then is it
 /// published on `vda5050/v3/<manufacturer>/<serialNumber>/order`.
+/// What a mission submission returns.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MissionPublished {
+    pub status: &'static str,
+    pub robot_id: String,
+    pub order_id: String,
+    pub header_id: u64,
+    pub waypoints: usize,
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/orders",
+    request_body = OrderRequest,
+    responses(
+        (status = 200, body = MissionPublished),
+        (status = 400, body = OrderRejection, description = "the mission was rejected before publication")
+    ),
+    security(("bearer" = []))
+)]
 async fn publish_order(
     State(state): State<AppState>,
     request: Result<axum::Json<OrderRequest>, axum::extract::rejection::JsonRejection>,
-) -> Result<Json<Value>, OrderRejection> {
+) -> Result<Json<MissionPublished>, OrderRejection> {
     let axum::Json(request) = request?;
     let assembler = OrderAssembler::new(&state.map_json);
     let order = crate::orders::submit(&assembler, &state.publisher, &state.store, &request)
@@ -266,13 +491,13 @@ async fn publish_order(
         })?;
     state.store.count_published().await;
 
-    Ok(Json(json!({
-        "status": "published",
-        "robotId": format!("{}:{}", order.manufacturer, order.serial_number),
-        "orderId": order.order_id,
-        "headerId": order.header_id,
-        "waypoints": order.nodes.len(),
-    })))
+    Ok(Json(MissionPublished {
+        status: "published",
+        robot_id: format!("{}:{}", order.manufacturer, order.serial_number),
+        order_id: order.order_id,
+        header_id: order.header_id,
+        waypoints: order.nodes.len(),
+    }))
 }
 async fn handle_socket(socket: WebSocket, state: AppState) {
     let (mut sender, mut receiver) = socket.split();

@@ -12,7 +12,7 @@ use crate::types::{Factsheet, PowerSupply, SafetyState, State};
 /// Connection state as tracked by the gateway.
 ///
 /// Serialised with the spec spelling (`ONLINE`, `OFFLINE`, `CONNECTION_BROKEN`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub enum ConnectionState {
     #[serde(rename = "ONLINE")]
     Online,
@@ -44,7 +44,7 @@ impl From<crate::types::ConnectionState> for ConnectionState {
 }
 
 /// Where the data came from — real robot or simulator.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum Source {
     Robot,
@@ -52,7 +52,7 @@ pub enum Source {
 }
 
 /// Fleet category used for grouping in the UI.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum FleetKind {
     Logistics,
@@ -92,7 +92,7 @@ impl Default for FleetKind {
 }
 
 /// Capabilities discovered from the `factsheet`.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Capabilities {
     #[serde(default)]
@@ -109,7 +109,7 @@ pub struct Capabilities {
 }
 
 /// The normalised view of one mobile robot.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CanonicalRobot {
     pub robot_id: String,

@@ -27,7 +27,7 @@ use vda5050_types::{MessageValidator, Topic, TopicPath};
 use crate::store::Store;
 
 /// One action the robot should run at a waypoint.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ActionSpec {
     /// VDA 5050 action type, e.g. `pick`, `drop`, `charge`, `initPosition`.
@@ -48,7 +48,7 @@ pub struct ActionSpec {
 }
 
 /// A single stop of the mission.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Waypoint {
     /// Node id on the served map.
@@ -63,7 +63,7 @@ pub struct Waypoint {
 }
 
 /// The mission as submitted by the dashboard.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderRequest {
     pub manufacturer: String,
@@ -424,7 +424,7 @@ pub async fn submit(
 }
 
 /// One instant action as submitted by the dashboard.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct InstantActionSpec {
     /// VDA 5050 instant action type, e.g. `cancelOrder`, `startPause`.
@@ -438,7 +438,7 @@ pub struct InstantActionSpec {
 }
 
 /// A batch of instant actions for one robot.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct InstantActionRequest {
     /// At least one action; VDA 5050 allows several per message.

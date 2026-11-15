@@ -17,7 +17,7 @@ fn default_u32() -> u32 {
 }
 
 /// Common header of every VDA 5050 message (v3 field name: `headerId`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Header {
     pub header_id: u64,
@@ -28,7 +28,7 @@ pub struct Header {
 }
 
 /// Position of a mobile robot (`mobileRobotPosition`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Position {
     pub x: f64,
@@ -43,7 +43,7 @@ pub struct Position {
 }
 
 /// Battery information (`powerSupply`).
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PowerSupply {
     pub state_of_charge: f64,
@@ -59,7 +59,7 @@ pub struct PowerSupply {
 }
 
 /// Operating modes of a mobile robot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[allow(non_camel_case_types)]
 pub enum OperatingMode {
     STARTUP,
@@ -72,7 +72,7 @@ pub enum OperatingMode {
 }
 
 /// Safety state (`safetyState`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SafetyState {
     pub active_emergency_stop: EmergencyStop,
@@ -80,7 +80,7 @@ pub struct SafetyState {
 }
 
 /// `safetyState.activeEmergencyStop`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[allow(non_camel_case_types)]
 pub enum EmergencyStop {
     MANUAL,
@@ -89,7 +89,9 @@ pub enum EmergencyStop {
 }
 
 /// Error severity (`errorLevel`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, utoipa::ToSchema,
+)]
 pub enum ErrorLevel {
     WARNING,
     URGENT,
@@ -122,7 +124,7 @@ impl ErrorLevel {
 }
 
 /// An entry of `state.errors`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorEntry {
     pub error_type: String,
@@ -136,7 +138,7 @@ pub struct ErrorEntry {
 }
 
 /// `actionStates[]` / `instantActionStates[]` entries.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ActionState {
     pub action_id: String,
@@ -150,7 +152,7 @@ pub struct ActionState {
 }
 
 /// `actionStates[].actionStatus`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[allow(non_camel_case_types)]
 pub enum ActionStatus {
     WAITING,
@@ -163,7 +165,7 @@ pub enum ActionStatus {
 }
 
 /// `nodeStates[]` entries.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeState {
     pub node_id: String,
@@ -176,7 +178,7 @@ pub struct NodeState {
 }
 
 /// `edgeStates[]` entries.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeState {
     pub edge_id: String,
@@ -187,7 +189,7 @@ pub struct EdgeState {
 }
 
 /// The `state` message.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct State {
     pub header_id: u64,
@@ -256,7 +258,7 @@ impl State {
 }
 
 /// Blocking type of an action.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub enum BlockingType {
     NONE,
     SOFT,
@@ -265,7 +267,7 @@ pub enum BlockingType {
 }
 
 /// An action inside `order.nodes[].actions` / `order.edges[].actions`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Action {
     pub action_type: String,
@@ -280,14 +282,14 @@ pub struct Action {
 }
 
 /// A key/value action parameter.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ActionParameter {
     pub key: String,
     pub value: Value,
 }
 
 /// A node of an order.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Node {
     pub node_id: String,
@@ -301,7 +303,7 @@ pub struct Node {
 }
 
 /// An edge of an order.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Edge {
     pub edge_id: String,
@@ -328,7 +330,7 @@ pub struct Edge {
 }
 
 /// The `order` message.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Order {
     pub header_id: u64,
@@ -345,7 +347,7 @@ pub struct Order {
 }
 
 /// An entry of `instantActions.actions`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct InstantAction {
     pub action_type: String,
@@ -359,7 +361,7 @@ pub struct InstantAction {
 }
 
 /// The `instantActions` message.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct InstantActions {
     pub header_id: u64,
@@ -371,7 +373,7 @@ pub struct InstantActions {
 }
 
 /// `connection.connectionState`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[allow(non_camel_case_types)]
 pub enum ConnectionState {
     ONLINE,
@@ -380,7 +382,7 @@ pub enum ConnectionState {
 }
 
 /// The `connection` message (published by the robot, or by the broker as last will).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Connection {
     pub header_id: u64,
@@ -392,7 +394,7 @@ pub struct Connection {
 }
 
 /// The `visualization` message.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Visualization {
     pub header_id: u64,
@@ -412,7 +414,7 @@ pub struct Visualization {
 }
 
 /// A lease answer in `responses.responses`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct LeaseResponse {
     pub request_id: String,
@@ -422,7 +424,7 @@ pub struct LeaseResponse {
 }
 
 /// `responses.responses[].grantType`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub enum GrantType {
     GRANTED,
     QUEUED,
@@ -431,7 +433,7 @@ pub enum GrantType {
 }
 
 /// The `responses` message (zone/edge lease answers only in v3.0.0).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Responses {
     pub header_id: u64,
@@ -446,7 +448,7 @@ pub struct Responses {
 ///
 /// The full factsheet is large and mostly static; only the parts the control
 /// system needs (identity, supported actions, load handling) are modelled.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Factsheet {
     pub header_id: u64,
@@ -465,7 +467,7 @@ pub struct Factsheet {
 }
 
 /// `factsheet.typeSpecification` (selected fields).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TypeSpecification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -481,7 +483,7 @@ pub struct TypeSpecification {
 }
 
 /// `factsheet.protocolFeatures` (selected fields).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ProtocolFeatures {
     #[serde(default)]
@@ -491,7 +493,7 @@ pub struct ProtocolFeatures {
 }
 
 /// One entry of `protocolFeatures.mobileRobotActions`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MobileRobotAction {
     pub action_type: String,

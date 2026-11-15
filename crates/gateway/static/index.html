@@ -101,7 +101,7 @@
   .toast div { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px; padding: 8px 12px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
   .toast .ok { border-left-color: var(--ok); }
   .toast .err { border-left-color: var(--err); }
-  .badge-link { cursor: pointer; font-size: 11px; }
+  .badge-link { cursor: pointer; font-size: 11px; background: #22304f; color: var(--muted); text-decoration: none; padding: 1px 5px; border-radius: 4px; }
   .badge-link.ok { background: #1f4433; color: var(--ok); }
   /* ── 즉시 제어 (정지/재개/취소) ── */
   .ctl { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
@@ -130,6 +130,7 @@
     <span>임무 <b id="stat-orders">0</b> · 누적 <b id="stat-orders-seen">0</b></span>
     <span>오류 <b id="stat-errors">0</b></span>
     <span>DLQ <b id="stat-dlq">0</b></span>
+    <a href="/api/docs/" target="_blank" rel="noopener" class="badge-link" title="REST API 문서">API 문서</a>
   </div>
 </header>
 <main>
