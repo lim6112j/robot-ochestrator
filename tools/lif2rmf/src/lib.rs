@@ -24,10 +24,14 @@
 
 use std::collections::BTreeMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+pub mod lif;
 
 /// The VDA 5050 map format used by the simulator and the dashboard.
-#[derive(Debug, Clone, Deserialize)]
+///
+/// `Serialize` as well as `Deserialize`, so a map that arrived as VDMA LIF can
+/// be written back out in this format for the gateway and the simulator.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct SourceMap {
     #[serde(rename = "mapId")]
     pub map_id: String,
@@ -42,7 +46,7 @@ pub struct SourceMap {
 }
 
 /// A node position.
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 pub struct SourceNode {
     pub x: f64,
     pub y: f64,
@@ -52,7 +56,7 @@ pub struct SourceNode {
 
 /// A directed edge. The warehouse map emits both directions, so the same
 /// pair usually appears twice.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct SourceEdge {
     pub from: String,
     pub to: String,

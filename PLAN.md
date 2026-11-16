@@ -160,6 +160,40 @@ spec 에 있는지, security 참조가 정의된 스키마를 가리키는지, s
 API는 닫혀 있는지, `MissionPublished` 스키마가 실제 응답과 같은지, `Metrics` 가
 snake_case 를 유지하는지, 두 POST 의 400 이 `OrderRejection` 를 가리키는지.
 
+#### VDMA LIF 임포트 (2026-11-16)
+
+표준 LIF 파일을 읽을 수 있게 했다. `tools/lif2rmf/src/lif.rs`.
+
+**먼저 스펙을 확보했다** (`schemas/lif-schema.json`, vdma-lif 레포). 추측하지
+않은 결과, 두 가지를 잘못 알고 있었음이 드러났다:
+
+1. **LIF 에는 충전소도, 문도 없다.** 순수 레이아웃(nodes/edges/stations)이다.
+   앞서 "chargers 가 LIF 에서 자동으로 나온다"고 말했지만 **틀렸다**. 그래서
+   충전소는 `--chargers` 로 별도로 공급하고, 로그에 그 사실을 명시한다.
+2. **theta 는 노드가 아니라 `vehicleTypeNodeProperties` 에 있다.**
+   `nodePosition` 은 x/y 만 있다. vehicle type 이 여러 개면 orientation 도
+   여러 개라 파일만으로 고를 수 없으므로, 첫 번째를 택하고 그 이유를 주석으로
+   남겼다.
+
+**`stations` 는 비어 있어도 필수다.** 스키마의 layout required 에 들어 있다.
+손으로 샘플을 쓰면 놓치기 쉬운 부분.
+
+**검증**: LIF 와 네이티브 맵이 같은 창고를 묘사하면 **RMF building map 이
+바이트 단위로 동일**하다(`roundtrip` 테스트). 왕복(LIF → 네이티브 JSON)도
+노드 좌표·엣지 수·충전소가 원본과 동일함을 확인. 실제로 시뮬레이터와
+게이트웨이가 LIF 유래 맵을 읽는 것도 돌려봤다(문 2개 인식).
+
+**스키마 검증은 실패했다가 되돌렸다**: `jsonschema` 크레이트가 `reqwest`,
+`hyper`, `rustls`, `jni` 까지 끌어와서 워크스페이스의 tokio 테스트 9개를
+망가뜨렸다. 스키마 검증 하나에 HTTP 클라이언트 스택은 터무니없으므로 제거하고,
+**스키마의 `required`/`properties` 를 직접 읽어** 모듈의 필드명과 대조하는
+경량 테스트로 갈았다. 드리프트를 실제로 잡는지 확인했다 — 스키마의
+`nodePosition` 을 `nodePositionX` 로 바꾸자 테스트가 실패했다.
+
+CLI: `--lif <file>` 입력, `--chargers` 별도로 공급, `--emit-map <file>` 로
+네이티브 맵 JSON 출력(게이트웨이/시뮬레이터용). `--map` 과 `--lif` 은 상호
+배타적.
+
 #### door adapter 추가 (2026-11-13)
 
 `deploy/rmf/door_adapter`: RMF `door_states` 발행 + `door_requests` 수락.

@@ -1,0 +1,1783 @@
+{
+  "metaInformation": {
+    "projectIdentification": "plant-b/l1",
+    "creator": "robot-control-system",
+    "exportTimestamp": "2026-01-01T00:00:00Z",
+    "lifVersion": "1.0.0"
+  },
+  "layouts": [
+    {
+      "layoutId": "plant-b/l1",
+      "layoutName": "Plant B level 1",
+      "layoutVersion": "1.0.0",
+      "layoutLevelId": "L1",
+      "nodes": [
+        {
+          "nodeId": "RK-AW",
+          "nodeName": "RK-AW",
+          "nodePosition": {
+            "x": 6.0,
+            "y": 4.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "RK-AM",
+          "nodeName": "RK-AM",
+          "nodePosition": {
+            "x": 18.0,
+            "y": 4.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "RK-AE",
+          "nodeName": "RK-AE",
+          "nodePosition": {
+            "x": 30.0,
+            "y": 4.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "RK-BW",
+          "nodeName": "RK-BW",
+          "nodePosition": {
+            "x": 6.0,
+            "y": 8.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "RK-BM",
+          "nodeName": "RK-BM",
+          "nodePosition": {
+            "x": 18.0,
+            "y": 8.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "RK-BE",
+          "nodeName": "RK-BE",
+          "nodePosition": {
+            "x": 30.0,
+            "y": 8.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "RK-CW",
+          "nodeName": "RK-CW",
+          "nodePosition": {
+            "x": 6.0,
+            "y": 12.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "RK-CM",
+          "nodeName": "RK-CM",
+          "nodePosition": {
+            "x": 18.0,
+            "y": 12.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "RK-CE",
+          "nodeName": "RK-CE",
+          "nodePosition": {
+            "x": 30.0,
+            "y": 12.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "RK-DW",
+          "nodeName": "RK-DW",
+          "nodePosition": {
+            "x": 6.0,
+            "y": 16.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "RK-DM",
+          "nodeName": "RK-DM",
+          "nodePosition": {
+            "x": 18.0,
+            "y": 16.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "RK-DE",
+          "nodeName": "RK-DE",
+          "nodePosition": {
+            "x": 30.0,
+            "y": 16.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "RK-EW",
+          "nodeName": "RK-EW",
+          "nodePosition": {
+            "x": 6.0,
+            "y": 20.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "RK-EM",
+          "nodeName": "RK-EM",
+          "nodePosition": {
+            "x": 18.0,
+            "y": 20.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "RK-EE",
+          "nodeName": "RK-EE",
+          "nodePosition": {
+            "x": 30.0,
+            "y": 20.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "AS-1W",
+          "nodeName": "AS-1W",
+          "nodePosition": {
+            "x": 0.0,
+            "y": 6.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "AS-1M",
+          "nodeName": "AS-1M",
+          "nodePosition": {
+            "x": 18.0,
+            "y": 6.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "AS-1E",
+          "nodeName": "AS-1E",
+          "nodePosition": {
+            "x": 36.0,
+            "y": 6.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "AS-2W",
+          "nodeName": "AS-2W",
+          "nodePosition": {
+            "x": 0.0,
+            "y": 10.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "AS-2M",
+          "nodeName": "AS-2M",
+          "nodePosition": {
+            "x": 18.0,
+            "y": 10.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "AS-2E",
+          "nodeName": "AS-2E",
+          "nodePosition": {
+            "x": 36.0,
+            "y": 10.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "AS-3W",
+          "nodeName": "AS-3W",
+          "nodePosition": {
+            "x": 0.0,
+            "y": 14.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "AS-3M",
+          "nodeName": "AS-3M",
+          "nodePosition": {
+            "x": 18.0,
+            "y": 14.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "AS-3E",
+          "nodeName": "AS-3E",
+          "nodePosition": {
+            "x": 36.0,
+            "y": 14.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "AS-4W",
+          "nodeName": "AS-4W",
+          "nodePosition": {
+            "x": 0.0,
+            "y": 18.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "AS-4M",
+          "nodeName": "AS-4M",
+          "nodePosition": {
+            "x": 18.0,
+            "y": 18.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "AS-4E",
+          "nodeName": "AS-4E",
+          "nodePosition": {
+            "x": 36.0,
+            "y": 18.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "CONV-IN",
+          "nodeName": "CONV-IN",
+          "nodePosition": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "CONV-OUT",
+          "nodeName": "CONV-OUT",
+          "nodePosition": {
+            "x": 36.0,
+            "y": 24.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "CHG-01",
+          "nodeName": "CHG-01",
+          "nodePosition": {
+            "x": 0.0,
+            "y": 24.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "CHG-02",
+          "nodeName": "CHG-02",
+          "nodePosition": {
+            "x": 36.0,
+            "y": 0.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "STG-01",
+          "nodeName": "STG-01",
+          "nodePosition": {
+            "x": 18.0,
+            "y": 0.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "STG-02",
+          "nodeName": "STG-02",
+          "nodePosition": {
+            "x": 18.0,
+            "y": 24.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "DOOR-IN",
+          "nodeName": "DOOR-IN",
+          "nodePosition": {
+            "x": 12.0,
+            "y": 0.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        },
+        {
+          "nodeId": "DOOR-OUT",
+          "nodeName": "DOOR-OUT",
+          "nodePosition": {
+            "x": 24.0,
+            "y": 24.0
+          },
+          "vehicleTypeNodeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "theta": 0.0
+            }
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "edgeId": "RK-AW->RK-AM",
+          "startNodeId": "RK-AW",
+          "endNodeId": "RK-AM",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-AM->RK-AW",
+          "startNodeId": "RK-AM",
+          "endNodeId": "RK-AW",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-AM->RK-AE",
+          "startNodeId": "RK-AM",
+          "endNodeId": "RK-AE",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-AE->RK-AM",
+          "startNodeId": "RK-AE",
+          "endNodeId": "RK-AM",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-BW->RK-BM",
+          "startNodeId": "RK-BW",
+          "endNodeId": "RK-BM",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-BM->RK-BW",
+          "startNodeId": "RK-BM",
+          "endNodeId": "RK-BW",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-BM->RK-BE",
+          "startNodeId": "RK-BM",
+          "endNodeId": "RK-BE",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-BE->RK-BM",
+          "startNodeId": "RK-BE",
+          "endNodeId": "RK-BM",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-CW->RK-CM",
+          "startNodeId": "RK-CW",
+          "endNodeId": "RK-CM",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-CM->RK-CW",
+          "startNodeId": "RK-CM",
+          "endNodeId": "RK-CW",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-CM->RK-CE",
+          "startNodeId": "RK-CM",
+          "endNodeId": "RK-CE",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-CE->RK-CM",
+          "startNodeId": "RK-CE",
+          "endNodeId": "RK-CM",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-DW->RK-DM",
+          "startNodeId": "RK-DW",
+          "endNodeId": "RK-DM",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-DM->RK-DW",
+          "startNodeId": "RK-DM",
+          "endNodeId": "RK-DW",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-DM->RK-DE",
+          "startNodeId": "RK-DM",
+          "endNodeId": "RK-DE",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-DE->RK-DM",
+          "startNodeId": "RK-DE",
+          "endNodeId": "RK-DM",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-EW->RK-EM",
+          "startNodeId": "RK-EW",
+          "endNodeId": "RK-EM",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-EM->RK-EW",
+          "startNodeId": "RK-EM",
+          "endNodeId": "RK-EW",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-EM->RK-EE",
+          "startNodeId": "RK-EM",
+          "endNodeId": "RK-EE",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-EE->RK-EM",
+          "startNodeId": "RK-EE",
+          "endNodeId": "RK-EM",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-1W->AS-1M",
+          "startNodeId": "AS-1W",
+          "endNodeId": "AS-1M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-1M->AS-1W",
+          "startNodeId": "AS-1M",
+          "endNodeId": "AS-1W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-1M->AS-1E",
+          "startNodeId": "AS-1M",
+          "endNodeId": "AS-1E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-1E->AS-1M",
+          "startNodeId": "AS-1E",
+          "endNodeId": "AS-1M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2W->AS-2M",
+          "startNodeId": "AS-2W",
+          "endNodeId": "AS-2M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2M->AS-2W",
+          "startNodeId": "AS-2M",
+          "endNodeId": "AS-2W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2M->AS-2E",
+          "startNodeId": "AS-2M",
+          "endNodeId": "AS-2E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2E->AS-2M",
+          "startNodeId": "AS-2E",
+          "endNodeId": "AS-2M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3W->AS-3M",
+          "startNodeId": "AS-3W",
+          "endNodeId": "AS-3M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3M->AS-3W",
+          "startNodeId": "AS-3M",
+          "endNodeId": "AS-3W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3M->AS-3E",
+          "startNodeId": "AS-3M",
+          "endNodeId": "AS-3E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3E->AS-3M",
+          "startNodeId": "AS-3E",
+          "endNodeId": "AS-3M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-4W->AS-4M",
+          "startNodeId": "AS-4W",
+          "endNodeId": "AS-4M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-4M->AS-4W",
+          "startNodeId": "AS-4M",
+          "endNodeId": "AS-4W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-4M->AS-4E",
+          "startNodeId": "AS-4M",
+          "endNodeId": "AS-4E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-4E->AS-4M",
+          "startNodeId": "AS-4E",
+          "endNodeId": "AS-4M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.2,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-AW->AS-1W",
+          "startNodeId": "RK-AW",
+          "endNodeId": "AS-1W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-1W->RK-AW",
+          "startNodeId": "AS-1W",
+          "endNodeId": "RK-AW",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-AE->AS-1E",
+          "startNodeId": "RK-AE",
+          "endNodeId": "AS-1E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-1E->RK-AE",
+          "startNodeId": "AS-1E",
+          "endNodeId": "RK-AE",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-BW->AS-1W",
+          "startNodeId": "RK-BW",
+          "endNodeId": "AS-1W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-1W->RK-BW",
+          "startNodeId": "AS-1W",
+          "endNodeId": "RK-BW",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-BE->AS-1E",
+          "startNodeId": "RK-BE",
+          "endNodeId": "AS-1E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-1E->RK-BE",
+          "startNodeId": "AS-1E",
+          "endNodeId": "RK-BE",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-BW->AS-2W",
+          "startNodeId": "RK-BW",
+          "endNodeId": "AS-2W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2W->RK-BW",
+          "startNodeId": "AS-2W",
+          "endNodeId": "RK-BW",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-BE->AS-2E",
+          "startNodeId": "RK-BE",
+          "endNodeId": "AS-2E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2E->RK-BE",
+          "startNodeId": "AS-2E",
+          "endNodeId": "RK-BE",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-CW->AS-2W",
+          "startNodeId": "RK-CW",
+          "endNodeId": "AS-2W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2W->RK-CW",
+          "startNodeId": "AS-2W",
+          "endNodeId": "RK-CW",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-CE->AS-2E",
+          "startNodeId": "RK-CE",
+          "endNodeId": "AS-2E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2E->RK-CE",
+          "startNodeId": "AS-2E",
+          "endNodeId": "RK-CE",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-CW->AS-3W",
+          "startNodeId": "RK-CW",
+          "endNodeId": "AS-3W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3W->RK-CW",
+          "startNodeId": "AS-3W",
+          "endNodeId": "RK-CW",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-CE->AS-3E",
+          "startNodeId": "RK-CE",
+          "endNodeId": "AS-3E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3E->RK-CE",
+          "startNodeId": "AS-3E",
+          "endNodeId": "RK-CE",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-DW->AS-3W",
+          "startNodeId": "RK-DW",
+          "endNodeId": "AS-3W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3W->RK-DW",
+          "startNodeId": "AS-3W",
+          "endNodeId": "RK-DW",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-DE->AS-3E",
+          "startNodeId": "RK-DE",
+          "endNodeId": "AS-3E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3E->RK-DE",
+          "startNodeId": "AS-3E",
+          "endNodeId": "RK-DE",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-DW->AS-4W",
+          "startNodeId": "RK-DW",
+          "endNodeId": "AS-4W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-4W->RK-DW",
+          "startNodeId": "AS-4W",
+          "endNodeId": "RK-DW",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-DE->AS-4E",
+          "startNodeId": "RK-DE",
+          "endNodeId": "AS-4E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-4E->RK-DE",
+          "startNodeId": "AS-4E",
+          "endNodeId": "RK-DE",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-EW->AS-4W",
+          "startNodeId": "RK-EW",
+          "endNodeId": "AS-4W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-4W->RK-EW",
+          "startNodeId": "AS-4W",
+          "endNodeId": "RK-EW",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "RK-EE->AS-4E",
+          "startNodeId": "RK-EE",
+          "endNodeId": "AS-4E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-4E->RK-EE",
+          "startNodeId": "AS-4E",
+          "endNodeId": "RK-EE",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.6,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-1W->AS-2W",
+          "startNodeId": "AS-1W",
+          "endNodeId": "AS-2W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2W->AS-1W",
+          "startNodeId": "AS-2W",
+          "endNodeId": "AS-1W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2W->AS-3W",
+          "startNodeId": "AS-2W",
+          "endNodeId": "AS-3W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3W->AS-2W",
+          "startNodeId": "AS-3W",
+          "endNodeId": "AS-2W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3W->AS-4W",
+          "startNodeId": "AS-3W",
+          "endNodeId": "AS-4W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-4W->AS-3W",
+          "startNodeId": "AS-4W",
+          "endNodeId": "AS-3W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-1M->AS-2M",
+          "startNodeId": "AS-1M",
+          "endNodeId": "AS-2M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2M->AS-1M",
+          "startNodeId": "AS-2M",
+          "endNodeId": "AS-1M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2M->AS-3M",
+          "startNodeId": "AS-2M",
+          "endNodeId": "AS-3M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3M->AS-2M",
+          "startNodeId": "AS-3M",
+          "endNodeId": "AS-2M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3M->AS-4M",
+          "startNodeId": "AS-3M",
+          "endNodeId": "AS-4M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-4M->AS-3M",
+          "startNodeId": "AS-4M",
+          "endNodeId": "AS-3M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-1E->AS-2E",
+          "startNodeId": "AS-1E",
+          "endNodeId": "AS-2E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2E->AS-1E",
+          "startNodeId": "AS-2E",
+          "endNodeId": "AS-1E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2E->AS-3E",
+          "startNodeId": "AS-2E",
+          "endNodeId": "AS-3E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3E->AS-2E",
+          "startNodeId": "AS-3E",
+          "endNodeId": "AS-2E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3E->AS-4E",
+          "startNodeId": "AS-3E",
+          "endNodeId": "AS-4E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-4E->AS-3E",
+          "startNodeId": "AS-4E",
+          "endNodeId": "AS-3E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "CONV-IN->AS-1W",
+          "startNodeId": "CONV-IN",
+          "endNodeId": "AS-1W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-1W->CONV-IN",
+          "startNodeId": "AS-1W",
+          "endNodeId": "CONV-IN",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "CONV-IN->DOOR-IN",
+          "startNodeId": "CONV-IN",
+          "endNodeId": "DOOR-IN",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "DOOR-IN->CONV-IN",
+          "startNodeId": "DOOR-IN",
+          "endNodeId": "CONV-IN",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "CONV-OUT->AS-4E",
+          "startNodeId": "CONV-OUT",
+          "endNodeId": "AS-4E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-4E->CONV-OUT",
+          "startNodeId": "AS-4E",
+          "endNodeId": "CONV-OUT",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "CONV-OUT->DOOR-OUT",
+          "startNodeId": "CONV-OUT",
+          "endNodeId": "DOOR-OUT",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "DOOR-OUT->CONV-OUT",
+          "startNodeId": "DOOR-OUT",
+          "endNodeId": "CONV-OUT",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "CHG-01->AS-4W",
+          "startNodeId": "CHG-01",
+          "endNodeId": "AS-4W",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-4W->CHG-01",
+          "startNodeId": "AS-4W",
+          "endNodeId": "CHG-01",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "CHG-02->AS-1E",
+          "startNodeId": "CHG-02",
+          "endNodeId": "AS-1E",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-1E->CHG-02",
+          "startNodeId": "AS-1E",
+          "endNodeId": "CHG-02",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "STG-01->AS-3M",
+          "startNodeId": "STG-01",
+          "endNodeId": "AS-3M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3M->STG-01",
+          "startNodeId": "AS-3M",
+          "endNodeId": "STG-01",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "STG-02->AS-2M",
+          "startNodeId": "STG-02",
+          "endNodeId": "AS-2M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2M->STG-02",
+          "startNodeId": "AS-2M",
+          "endNodeId": "STG-02",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 1.0,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "DOOR-IN->AS-2M",
+          "startNodeId": "DOOR-IN",
+          "endNodeId": "AS-2M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-2M->DOOR-IN",
+          "startNodeId": "AS-2M",
+          "endNodeId": "DOOR-IN",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "DOOR-OUT->AS-3M",
+          "startNodeId": "DOOR-OUT",
+          "endNodeId": "AS-3M",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        },
+        {
+          "edgeId": "AS-3M->DOOR-OUT",
+          "startNodeId": "AS-3M",
+          "endNodeId": "DOOR-OUT",
+          "vehicleTypeEdgeProperties": [
+            {
+              "vehicleTypeId": "amr",
+              "maxSpeed": 0.8,
+              "orientationType": "TANGENTIAL"
+            }
+          ]
+        }
+      ],
+      "stations": []
+    }
+  ]
+}

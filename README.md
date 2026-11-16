@@ -161,6 +161,38 @@ RMF 가 실제로 파싱한 결과: **내비 그래프 정점 35 · 차선 106**
 그리고 **문을 지나는 차선 8개**(DOOR-IN 4 · DOOR-OUT 4)에 `door_name` 이 붙어
 공유 자원 예약이 임무에 반영됩니다.
 
+#### VDMA LIF 파일에서 가져오기
+
+현장에서 넘어오는 표준 형식은 **VDMA LIF**(Layout Interchange Format)입니다.
+스펙은 `schemas/lif-schema.json` 에 vendored 돼 있고, 테스트가 모듈의 필드명을
+그 스펙과 대조하므로 사설 방언이 될 수 없습니다.
+
+```bash
+# RMF building map
+cargo run -p lif2rmf -- --lif deploy/maps/plant-b.l1.lif.json \
+  --chargers CHG-01,CHG-02 --out deploy/maps/plant-b.building.yaml
+
+# 게이트웨이·시뮬레이터가 읽을 네이티브 맵 JSON
+cargo run -p lif2rmf -- --lif deploy/maps/plant-b.l1.lif.json \
+  --chargers CHG-01,CHG-02 --emit-map deploy/maps/plant-b.l1.json
+```
+
+같은 창고를 LIF 로 쓰든 네이티브로 쓰든 **RMF building map 은 바이트 단위로
+동일**합니다(`roundtrip` 테스트가 이를 보장).
+
+**LIF 에서 가져오지 않는 것** — 알고 써야 합니다:
+
+- **충전소.** LIF 에는 충전소 개념이 없다. RMF 는 충전 웨이포인트 없는 플릿에
+  로봇을 추가하지 않으므로 `--chargers` 로 반드시 따로 줘야 한다.
+- **theta.** 노드가 아니라 `vehicleTypeNodeProperties` 안에 있고, vehicle
+  type 이 여러 개면 orientation 도 여러 개라 파일만으로 고를 수 없다. 첫 번째
+  것을 택한다.
+- **문.** LIF 에도 없다. 네이티브 맵과 마찬가지로 노드 id 프리픽스(`DOOR`)로
+  만들 뿐이다.
+
+`stations` 는 비어 있어도 **필수** 필드다. 샘플을 손으로 쓰면 놓치기 쉬워
+테스트로 못 박아 두었다.
+
 주의할 점 두 가지:
 
 1. **파라미터 키는 `bidirectional`** 이지 `is_bidirectional` 가 아닙니다. RMF 는
