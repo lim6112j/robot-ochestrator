@@ -170,37 +170,59 @@ Participants `0` and `1` are `acme:AMR-002` and `acme:AMR-001`, both owned by
 answered the schedule's proposals, which is the whole point of the fleet
 adapter existing.
 
-### How to reproduce
+### Verifying it: what can and cannot be asserted
 
 ```
-# 1. simulator, so the adapter has robot state to read
-cargo run -p vda5050-sim -- --config deploy/sim-warehouse.yaml
-
-# 2. schedule node + fleet adapter, in the container
-docker run --rm --network host -v "$PWD/deploy/rmf:/rmf:ro" rcs-rmf:jazzy bash -lc '
-  source /opt/ros/jazzy/setup.bash
-  export ROS_DOMAIN_ID=42
-  export PYTHONPATH=/rmf/fleet_adapter:$PYTHONPATH
-  rm -rf /usr/local/lib/python3.12/dist-packages/vda5050_fleet_adapter
-  ros2 run rmf_traffic_ros2 rmf_traffic_schedule &
-  sleep 12
-  python3 -u -m vda5050_fleet_adapter.fleet_adapter \
-    -c /rmf/fleet_adapter/vda5050_fleet_adapter/config.yaml \
-    -n /rmf/fleet_adapter/nav_graph.yaml'
+./deploy/rmf/verify-negotiation.sh              # report, exits 0 on the assertable part
+./deploy/rmf/verify-negotiation.sh --strict     # also require a concluded negotiation
+LOG_DIR=/tmp/rmf-logs ./deploy/rmf/verify-negotiation.sh   # keep the logs
 ```
 
-The adapter dispatches parking tasks on its own shortly after start, which is
-what produces the conflicting itineraries. Watching the conclusion:
+It rebuilds the map from LIF, starts the simulator, the gateway, the schedule
+node and the fleet adapter, issues missions, and watches
+`/rmf_traffic/negotiation_conclusion`.
+
+**What it asserts** — a failure here is a real regression:
+
+* the artifacts build, the broker answers a publish/subscribe round trip
+* the adapter registers both participants
+* the schedule node is up and mirroring
+
+**What it only reports:**
+
+* whether a negotiation starts
+* whether it concludes with `resolved: true`
+
+The split is deliberate. A conclusion is **not currently reachable on demand**,
+because this adapter is built on the upstream template, which expects
+`rmf_task_dispatcher` to turn a delivery request into an RMF task. That
+component is not part of this project and is not started here. The only thing
+that produces itineraries is the adapter's own parking task, so a negotiation
+happens when a robot's live driving happens to overlap it — a timing
+coincidence, not a path this project controls. Asserting on it would make the
+script fail at random, which is worse than not asserting.
+
+The arbitration *mechanism* is verified deterministically and separately by
+`deploy/rmf/traffic_probe.py`, which submits the conflicting itineraries
+itself:
 
 ```
-ros2 topic echo /rmf_traffic/negotiation_conclusion
+python3 deploy/rmf/traffic_probe.py L1
 ```
 
-`--network host` is required: DDS does not cross a compose bridge. The broker
-is therefore `localhost`, not the compose service name — see the comment in
-`config.yaml`.
+What is missing is the last hop: the adapter answering a proposal for a task
+it was actually given. Closing that needs the dispatch path, not a script.
 
-### Three things had to be fixed to get here
+A negotiation *has* been observed to conclude — `Require negotiation for: 0 1`
+and `resolved: true` with both robots owned by `vda5050Fleet` — but it depended
+on the parking task overlapping a long mission, and it does not reproduce
+reliably. That is recorded in PLAN.md rather than claimed as a passing check.
+
+`--strict` exists for when the dispatch path lands: it turns the report into a
+failure, which is what CI should run once the conclusion is reachable on
+demand.
+
+### Three things had to be fixed to get here### Three things had to be fixed to get here
 
 All three failed silently or with a message that named the wrong thing.
 

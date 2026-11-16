@@ -194,6 +194,50 @@ CLI: `--lif <file>` 입력, `--chargers` 별도로 공급, `--emit-map <file>` �
 네이티브 맵 JSON 출력(게이트웨이/시뮬레이터용). `--map` 과 `--lif` 은 상호
 배타적.
 
+#### 교통 협상 검증 자동화 — assert 가능한 것만 (2026-11-16)
+
+`deploy/rmf/verify-negotiation.sh`. **완결을 assert 하지 않는다.**
+
+**이유: 완결은 현재 명령으로 재현할 수 없다.** 이 어댑터는 upstream 템플릿
+기반이라 delivery 요청을 RMF task 로 바꾸는 `rmf_task_dispatcher` 가 필요한데,
+그것은 이 프로젝트의 일부가 아니고 여기서 띄우지도 않는다. itinerary 를 내는
+것은 어댑터 자신의 parking task 뿐이라, **로봇의 실제 주행과 우연히 겹칠 때만**
+협상이 발생한다. 이건 타이밍 우연이지 우리가 제어하는 경로가 아니므로, 여기에
+assert 를 걸면 스크립트가 무작위로 실패한다. 검증 안 하는 것보다 못 한 결과다.
+
+그래서 둘로 나눴다:
+
+- **assert**: 아티팩트 빌드, 브로커 왕복, 시뮬레이터/어댑터 기동, **참여자 2명
+  등록**, 스케줄러 미러 동작. 여기서 실패하면 진짜 회귀.
+- **보고만**: 협상 시작 여부, `resolved: true` 완결 여부.
+
+`--strict` 는 보고를 실패로 바꾼다. dispatch 경로가 생긴 뒤 CI 가 돌려야 할
+모드이고, 지금은 기본 모드가 보고만 한다.
+
+**협상 메커니즘 자체는 별도로 결정적으로 검증된다** —
+`deploy/rmf/traffic_probe.py` 가 충돌하는 itinerary 를 직접 주입한다. 부족한
+것은 마지막 한 걸음, 즉 **어댑터가 실제로 받은 task 에 대한 제안에 응답하는
+것**이고, 그건 스크립트가 아니라 dispatch 경로로 닫힌다.
+
+**완결을 본 적은 있다**(`Require negotiation for: 0 1` + `resolved: true`, 두
+로봇 모두 `vda5050Fleet` 소유). 하지만 parking task 가 장거리 임무와 겹칠 때
+한 번뿐이고 재현이 안 된다. 그래서 PLAN 에 사실로 기록하지 통과하는 체크로
+기록하지 않는다.
+
+**스크립트를 만들며 고친 것**:
+- `nudged` 를 Dockerfile 에 bake 했다. 매번 pip 설치하면 네트워크 의존이고,
+  없으면 어댑터가 `ModuleNotFoundError` 로 죽어 참여자가 0 명이 된다.
+- 남아있는 프로세스를 정리한다. 이전 게이트웨이가 8090 을 잡고 있으면 새
+  게이트웨이가 `AddrInUse` 로 죽고, 모든 임무 발행이 조용히 실패한다 — 그건
+  "로봇이 충돌하지 않음" 과 구분이 안 간다.
+- 브로커 검사를 `$SYS/#` 구독에서 실제 publish/subscribe 왕복으로 바꿨다.
+  mosquitto 는 sys 토픽이 흔히 꺼져 있어 거짓 음성이 났다.
+- 컨테이너 내부 스크립트를 파일로 빼 썼다. `bash -lc '...'` 안에 인라인하면
+  인용 이스케이프가 스크립트를 조용히 망가뜨리고, 그 결과가 RMF 실패처럼
+  보인다.
+- `set -u` 는 컨테이너 스크립트에 쓰지 않는다. ROS `setup.bash` 가 unset
+  변수를 만져서 아무것도 시작하기 전에 죽는다.
+
 #### door adapter 추가 (2026-11-13)
 
 `deploy/rmf/door_adapter`: RMF `door_states` 발행 + `door_requests` 수락.

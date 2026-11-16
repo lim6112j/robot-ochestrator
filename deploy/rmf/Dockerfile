@@ -36,7 +36,11 @@ RUN apt-get update -qq \
 # The fleet adapter talks VDA 5050 over MQTT. `rmf_fleet_adapter_python` is
 # installed from apt, but the template's own client library is not a
 # dependency, so bring it in here.
-RUN pip3 install --break-system-packages --no-cache-dir paho-mqtt
+#
+# `nudged` is the least-squares estimator the template uses to align the
+# robot's own coordinates with RMF's. It is baked in rather than installed at
+# run time so the adapter needs no network to start.
+RUN pip3 install --break-system-packages --no-cache-dir paho-mqtt nudged
 
 # rosdep needs its cache before it can resolve dependencies of a source
 # workspace; seed it so a later `rosdep install` does not need the network.
